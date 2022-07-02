@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import os
+import random
 import signal
 import subprocess
 import sys
@@ -38,7 +39,7 @@ def parse_args(
 
     parser = argparse.ArgumentParser(
         description=(
-            "Create one or more videos using one or more audio files and one image."
+            "Create one or more videos using one or more audio files and image(s)."
         ),
     )
 
@@ -83,7 +84,6 @@ def parse_args(
         default="webm",
         help="The format of the output videos. Defaults to WebM.",
     )
-
     parser.add_argument(
         "-x",
         "--use-x265",
@@ -102,7 +102,16 @@ def parse_args(
             "subdirectories of the given input folder"
         ),
     )
-
+    parser.add_argument(
+        "-rng",
+        "--random-image-order",
+        dest="random_image_order",
+        action="store_true",
+        help=(
+            "Shuffles the image order in the output videos for when a folder of "
+            "images is passed. Is ignored when a single image file is passed."
+        ),
+    )
     parser.add_argument(
         "-f",
         "--formats",
@@ -138,18 +147,21 @@ def create_videos(
     *,
     audio_paths: list[str],
     img_paths: list[str],
-    vid_format: str,
-    out_path: str = "",
+    vid_format="webm",
+    out_path="",
     use_x265=False,
+    random_image_order=False,
 ):
     """
     Outputs video files of a static image for one or more audio files.
 
     :param audio_paths: The paths to the audio file(s) to make videos for.
     :param img_paths: The path to the image file(s) to use in every video.
-    :param vid_format: The video format of the output videos.
+    :param vid_format: The video format of the output videos, defaults to WebM.
     :param out_path: The path to output all the videos to, defaults to "" (current dir).
-    :param use_x265: Whether to use x265 video encoding, defaults to False
+    :param use_x265: Whether to use x265 video encoding, defaults to False.
+    :param random_image_order: Whether to randomize the image order for the output
+    videos instead of assigning them sequentially, defaults to False.
 
     #### x264 vs. x265
 
@@ -191,6 +203,15 @@ def create_videos(
     img_list_index = 0
     for audio in audio_paths:
         output_filename = os.path.join(out_path, Path(audio).stem + "." + vid_format)
+        image_path = img_paths[img_list_index]
+
+        if random_image_order:
+            image_path = random.choice(img_paths)
+        else:
+            img_list_index += 1
+            if img_list_index >= len(img_paths):
+                img_list_index = 0
+
         new_command = [
             "ffmpeg",
             "-y",  # Overwrite existing files with the same name without asking
@@ -199,7 +220,7 @@ def create_videos(
             "-framerate",
             "2",  # See "Framerate setting" in docstring above
             "-i",
-            img_paths[img_list_index],
+            image_path,
             "-i",
             audio,
             "-c:v",
@@ -222,10 +243,6 @@ def create_videos(
             new_command[14:14] = ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]
 
         commands.append(new_command)
-
-        img_list_index += 1
-        if img_list_index >= len(img_paths):
-            img_list_index = 0
 
     core_count = multiprocessing.cpu_count()
     # Create videos in parallel only if the CPU has enough cores and we're processing
@@ -358,7 +375,7 @@ def main(
                 f"Valid audio formats: {valid_aud_formats}\n"
                 f"Valid video formats: {valid_vid_formats}\n"
             )
-            return 1
+            raise SystemExit()
 
         if not check_if_ffmpeg_is_installed():
             raise RuntimeError("FFMPEG needs to be installed for this script to work.")
@@ -375,6 +392,7 @@ def main(
             vid_format=args.vid_format,
             out_path=args.output_path,
             use_x265=args.use_x265,
+            random_image_order=args.random_image_order,
         )
     except (KeyboardInterrupt, SystemExit):
         return 1
