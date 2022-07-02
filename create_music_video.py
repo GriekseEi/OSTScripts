@@ -248,7 +248,7 @@ def create_videos(
     # Create videos in parallel only if the CPU has enough cores and we're processing
     # more than one song, otherwise the process pool only creates unnecessary overhead
     if core_count > 2 and len(audio_paths) > 1:
-        print(f"Processing {len(audio_paths)} songs...")
+        print(f"Processing {len(audio_paths)} songs... (Press CTRL+C to abort)")
 
         # Ignore SIGINT in the main process, so that the child processes created by
         # instantiating the pool will inherit the SIGINT handler
@@ -395,6 +395,7 @@ def main(
             random_image_order=args.random_image_order,
         )
     except (KeyboardInterrupt, SystemExit):
+        print("User aborted program. Closing...")
         return 1
     except subprocess.CalledProcessError as err:
         print(f"Video conversion failed.\nError message: {err.stderr}")
