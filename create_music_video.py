@@ -16,6 +16,13 @@ import multiprocessing
 VALID_AUD_FORMATS = (".mp3", ".wav", ".flac", ".wma", ".opus", ".ogg")
 VALID_IMG_FORMATS = (".jpg", ".jpeg", ".png", ".bmp")
 VALID_VID_FORMATS = ("mp4", "avi", "flv", "webm", "wmv", "mov")
+# The widths and heights that YouTube understands under each resolution type
+RESOLUTIONS = {
+    "360p": ("640", "360"),
+    "480p": ("854", "480"),
+    "720p": ("1280", "720"),
+    "1080p": ("1920", "1080"),
+}
 
 
 def parse_args(
@@ -59,7 +66,7 @@ def parse_args(
         dest="image_path",
         type=convert_relative_path_to_absolute,
         help=(
-            "The path containing the image file(s)."
+            "The path containing the image file(s). "
             "Can point to a single file or a directory."
         ),
     )
@@ -99,7 +106,7 @@ def parse_args(
         action="store_true",
         help=(
             "Whether to make videos for all audio files in all "
-            "subdirectories of the given input folder"
+            "subdirectories of the given input folder."
         ),
     )
     parser.add_argument(
@@ -109,7 +116,19 @@ def parse_args(
         action="store_true",
         help=(
             "Shuffles the image order in the output videos for when a folder of "
-            "images is passed. Is ignored when a single image file is passed."
+            "images is passed. Is ignored when a single image file is input."
+        ),
+    )
+    parser.add_argument(
+        "-res",
+        "--resolution",
+        dest="resolution",
+        choices=RESOLUTIONS.keys(),
+        required=False,
+        type=str,
+        help=(
+            "The resolution scale for the output videos. Uses the original "
+            "resolution of the provided image(s) if no option is provided."
         ),
     )
     parser.add_argument(
@@ -148,6 +167,7 @@ def create_videos(
     audio_paths: list[str],
     img_paths: list[str],
     vid_format="webm",
+    resolution: Optional[tuple[str, str]] = None,
     out_path="",
     use_x265=False,
     random_image_order=False,
@@ -201,6 +221,49 @@ def create_videos(
 
     commands = []
     img_list_index = 0
+
+    # The PyCLI library would be a great fit for building more complicated commands
+    # like these below without the code looking like spaghetti, though we're trying to
+    # use the standard library where possible to prevent the user from having to worry
+    # about dependencies. I'll consider it if this becomes too unmaintainable, however.
+    new_command = [
+        "ffmpeg",
+        "-y",  # Overwrite existing files with the same name without asking
+        "-loop",
+        "1",
+        "-framerate",
+        "2",  # See "Framerate setting" in docstring above
+        "-i",
+        "image_path",  # Index 7 for editing the image path
+        "-i",
+        "audio_path",  # Index 9 for editing the audio path
+        "-c:v",
+        vid_codec,
+        "-c:a",
+        aud_codec,
+        "-pix_fmt",
+        "yuv420p",  # Use YUV420p color space for best compatibility
+        "-shortest",  # Match video length with audio length
+        "-fflags",
+        "+shortest",
+        "-max_interleave_delta",
+        "100M",
+        "output_filename",  # Last index for editing the output path
+    ]
+
+    if resolution is not None:
+        # This tells FFMPEG to scale the source image to the target resolution and
+        # aspect ratio, while padding the remaining space with black bars.
+        new_command[14:14] = [
+            "-vf",
+            f"scale={resolution[0]}:{resolution[1]}:force_original_aspect_ratio="
+            f"decrease,pad={resolution[0]}:{resolution[1]}:(ow-iw)/2:(oh-ih)/2",
+        ]
+    elif vid_codec == "libx264":
+        # x264 encoding requires that the width and height be divisible by 2, so pad the
+        # video where necessary if we use x264.
+        new_command[14:14] = ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]
+
     for audio in audio_paths:
         output_filename = os.path.join(out_path, Path(audio).stem + "." + vid_format)
         image_path = img_paths[img_list_index]
@@ -212,37 +275,10 @@ def create_videos(
             if img_list_index >= len(img_paths):
                 img_list_index = 0
 
-        new_command = [
-            "ffmpeg",
-            "-y",  # Overwrite existing files with the same name without asking
-            "-loop",
-            "1",
-            "-framerate",
-            "2",  # See "Framerate setting" in docstring above
-            "-i",
-            image_path,
-            "-i",
-            audio,
-            "-c:v",
-            vid_codec,
-            "-c:a",
-            aud_codec,
-            "-pix_fmt",
-            "yuv420p",  # Use YUV420p color space for best compatibility
-            "-shortest",  # Match video length with audio length
-            "-fflags",
-            "+shortest",
-            "-max_interleave_delta",
-            "100M",
-            output_filename,
-        ]
-
-        # x264 encoding requires that the width and height of the image are
-        # divisible by 2, when applicable this pads the image to facilitate that
-        if vid_codec == "libx264":
-            new_command[14:14] = ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]
-
-        commands.append(new_command)
+        new_command[7] = image_path
+        new_command[9] = audio
+        new_command[-1] = output_filename
+        commands.append(new_command.copy())
 
     core_count = multiprocessing.cpu_count()
     # Create videos in parallel only if the CPU has enough cores and we're processing
@@ -350,7 +386,7 @@ def main(
     valid_aud_formats: tuple[str, ...] = VALID_AUD_FORMATS,
     cli_args: Optional[list[str]] = None,
 ) -> int:
-    """The main entrypoint of this script. Handles error-handling and filetype checking.
+    """The main entrypoint of this script.
 
     :param valid_img_formats: Supported image formats, defaults to VALID_IMG_FORMATS
     :param valid_vid_formats: Supported video formats, defaults to VALID_VID_FORMATS
@@ -390,6 +426,7 @@ def main(
             audio_paths=audio_files,
             img_paths=image_files,
             vid_format=args.vid_format,
+            resolution=RESOLUTIONS.get(args.resolution),
             out_path=args.output_path,
             use_x265=args.use_x265,
             random_image_order=args.random_image_order,
