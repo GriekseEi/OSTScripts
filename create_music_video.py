@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import argparse
-import copy
 import os
 import signal
 import subprocess
@@ -58,7 +57,10 @@ def parse_args(
         "--image",
         dest="image_path",
         type=convert_relative_path_to_absolute,
-        help="The path containing the image.",
+        help=(
+            "The path containing the image file(s)."
+            "Can point to a single file or a directory."
+        ),
     )
     parser.add_argument(
         "-o",
@@ -134,8 +136,8 @@ def run_ffmpeg_command(cmd: list[str]):
 
 def create_videos(
     *,
-    song_paths: list[str],
-    img_path: str,
+    audio_paths: list[str],
+    img_paths: list[str],
     vid_format: str,
     out_path: str = "",
     use_x265=False,
@@ -143,8 +145,8 @@ def create_videos(
     """
     Outputs video files of a static image for one or more audio files.
 
-    :param song_paths: The paths to the song(s) to make videos for.
-    :param img_path: The path to the image to use in every video.
+    :param audio_paths: The paths to the audio file(s) to make videos for.
+    :param img_paths: The path to the image file(s) to use in every video.
     :param vid_format: The video format of the output videos.
     :param out_path: The path to output all the videos to, defaults to "" (current dir).
     :param use_x265: Whether to use x265 video encoding, defaults to False
@@ -186,49 +188,50 @@ def create_videos(
         vid_codec = "libx265"
 
     commands = []
-    base_command = [
-                "ffmpeg",
-                "-y",  # Overwrite existing files with the same name without asking
-                "-loop",
-                "1",
-                "-framerate",
-                "2",  # See "Framerate setting" in docstring above
-                "-i",
-                img_path,
-                "-i",
-                "default_audio_path",  # Index 9, should be edited by for loop below
-                "-c:v",
-                vid_codec,
-                "-c:a",
-                aud_codec,
-                "-pix_fmt",
-                "yuv420p",  # Use YUV color space for best compatibility
-                "-shortest",  # Match video length with audio length
-                "-fflags",
-                "+shortest",
-                "-max_interleave_delta",
-                "100M",
-                "default_output_path",
-            ]
-    for item in song_paths:
-        new_command = copy.deepcopy(base_command)
-        # Change audio path
-        new_command[9] = item
+    img_list_index = 0
+    for audio in audio_paths:
+        output_filename = os.path.join(out_path, Path(audio).stem + "." + vid_format)
+        new_command = [
+            "ffmpeg",
+            "-y",  # Overwrite existing files with the same name without asking
+            "-loop",
+            "1",
+            "-framerate",
+            "2",  # See "Framerate setting" in docstring above
+            "-i",
+            img_paths[img_list_index],
+            "-i",
+            audio,
+            "-c:v",
+            vid_codec,
+            "-c:a",
+            aud_codec,
+            "-pix_fmt",
+            "yuv420p",  # Use YUV420p color space for best compatibility
+            "-shortest",  # Match video length with audio length
+            "-fflags",
+            "+shortest",
+            "-max_interleave_delta",
+            "100M",
+            output_filename,
+        ]
+
         # x264 encoding requires that the width and height of the image are
         # divisible by 2, when applicable this pads the image to facilitate that
         if vid_codec == "libx264":
             new_command[14:14] = ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]
-        # Add final filename of video to end of command
-        full_video_filename = os.path.join(out_path, Path(item).stem + "." + vid_format)
-        new_command.append(full_video_filename)
-        
+
         commands.append(new_command)
+
+        img_list_index += 1
+        if img_list_index >= len(img_paths):
+            img_list_index = 0
 
     core_count = multiprocessing.cpu_count()
     # Create videos in parallel only if the CPU has enough cores and we're processing
     # more than one song, otherwise the process pool only creates unnecessary overhead
-    if core_count > 2 and len(song_paths) > 1:
-        print(f"Processing {len(song_paths)} songs...")
+    if core_count > 2 and len(audio_paths) > 1:
+        print(f"Processing {len(audio_paths)} songs...")
 
         # Ignore SIGINT in the main process, so that the child processes created by
         # instantiating the pool will inherit the SIGINT handler
@@ -258,7 +261,7 @@ def create_videos(
     end_time = time.perf_counter()
     elapsed_time = round((end_time - start_time), 4)
 
-    print(f"Created {len(song_paths)} videos in {elapsed_time}s!")
+    print(f"Created {len(audio_paths)} videos in {elapsed_time}s!")
 
 
 def create_missing_folder(path: str):
@@ -283,6 +286,46 @@ def create_missing_folder(path: str):
             raise SystemExit()
 
 
+def glob_files(
+    path: str,
+    valid_formats: tuple[str, ...],
+    recursive: bool = False,
+) -> list[str]:
+    """Returns a list of all filenames in the given directory that support the given
+    formats if the given path is a directory, or returns a list of only one path if
+    the given path points to a single file. The paths in the list are sorted
+    alphabetically.
+
+    :param path: The path to the target file or directory.
+    :param valid_formats: The formats of the files we want to glob.
+    :param recursive: Whether, defaults to False
+
+    :raises FileNotFoundError: If there are no files/folders at the given path with the
+    given extensions.
+    """
+    has_multiple = False
+    if os.path.isdir(path):
+        has_multiple = True
+    elif not os.path.isfile(path):
+        raise FileNotFoundError(f"Couldn't find image/folder at {path}")
+
+    output = []
+    if has_multiple:
+        for ext in valid_formats:
+            output.extend(glob(os.path.join(path, "*" + ext), recursive=recursive))
+
+        if len(output) < 1:
+            raise FileNotFoundError(
+                "Couldn't find files of supported type in the ",
+                f"given folder. Supported types: {valid_formats}",
+            )
+        output = sorted(output)
+    else:
+        output.append(path)
+
+    return output
+
+
 def main(
     *,
     valid_img_formats: tuple[str, ...] = VALID_IMG_FORMATS,
@@ -298,8 +341,8 @@ def main(
     :param cli_args: The CLI args to pass to parse_args(), defaults to None
 
     :raises RuntimeError: If FFMPEG is not installed on this system.
-    :raises FileNotFoundError: If given path points to no file or directory.
-    :raises TypeError: If the extension of the given file isn't supported.
+    :raises FileNotFoundError: If given path points to no files of a supported format
+    or directory.
     :raises TimeoutError: If the process takes too long to complete. Timeout is set to
     4096 seconds.
 
@@ -307,8 +350,6 @@ def main(
     user, and 2 if an error was caught.
     """
     try:
-        multiple_audio_files = False
-
         args = parse_args(valid_vid_formats, cli_args)
 
         if args.formats:
@@ -322,44 +363,15 @@ def main(
         if not check_if_ffmpeg_is_installed():
             raise RuntimeError("FFMPEG needs to be installed for this script to work.")
 
-        if os.path.isdir(args.audio_path):
-            multiple_audio_files = True
-        elif not os.path.isfile(args.audio_path):
-            raise FileNotFoundError(f"Couldn't find file/folder at {args.audio_path}")
-
-        if not os.path.isfile(args.image_path):
-            raise FileNotFoundError(f"Couldn't find image at {args.image_path}")
+        audio_files = glob_files(args.audio_path, valid_aud_formats, args.recursive)
+        image_files = glob_files(args.image_path, valid_img_formats, args.recursive)
 
         if not os.path.isdir(args.output_path):
             create_missing_folder(args.output_path)
 
-        if not args.image_path.endswith(valid_img_formats):
-            raise TypeError(
-                f"Filetype of given image is not supported.\n"
-                f"Supported image filetypes: {valid_img_formats}"
-            )
-
-        audio_files = []
-        if multiple_audio_files:
-            for ext in valid_aud_formats:
-                audio_files.extend(
-                    glob(
-                        os.path.join(args.audio_path, "*" + ext),
-                        recursive=args.recursive,
-                    )
-                )
-
-            if len(audio_files) == 0:
-                raise TypeError(
-                    f"Found no audio with the supported filetypes.\n"
-                    f"Supported filetypes: {valid_aud_formats}"
-                )
-        else:
-            audio_files.append(args.audio_path)
-
         create_videos(
-            song_paths=audio_files,
-            img_path=args.image_path,
+            audio_paths=audio_files,
+            img_paths=image_files,
             vid_format=args.vid_format,
             out_path=args.output_path,
             use_x265=args.use_x265,
@@ -369,12 +381,7 @@ def main(
     except subprocess.CalledProcessError as err:
         print(f"Video conversion failed.\nError message: {err.stderr}")
         return 2
-    except (
-        FileNotFoundError,
-        RuntimeError,
-        TypeError,
-        TimeoutError
-    ) as err:
+    except (FileNotFoundError, RuntimeError, TimeoutError) as err:
         print(f"Caught error:\n{err}")
         return 2
     except BaseException as err:  # pylint:disable=broad-except
