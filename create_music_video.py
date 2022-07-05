@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 import argparse
+import multiprocessing
 import os
+import platform
 import random
 import signal
 import subprocess
 import sys
 import time
 import traceback
+import urllib.request
+import zipfile
 from glob import glob
 from pathlib import Path
 from typing import Optional
-import multiprocessing
-
 
 VALID_AUD_FORMATS = (".mp3", ".wav", ".flac", ".wma", ".opus", ".ogg")
 VALID_IMG_FORMATS = (".jpg", ".jpeg", ".png", ".bmp")
@@ -23,6 +25,8 @@ RESOLUTIONS = {
     "720p": ("1280", "720"),
     "1080p": ("1920", "1080"),
 }
+FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+FFMPEG_ROOT_FOLDER = "ffmpeg-master-latest-win64-gpl"
 
 
 def parse_args(
@@ -151,13 +155,92 @@ def check_if_ffmpeg_is_installed():
             ["ffmpeg", "-version"], check=True, shell=True, capture_output=True
         )
     except subprocess.CalledProcessError:
-        raise RuntimeError("FFMPEG needs to be installed for this script to work.")
+        install_ffmpeg()
 
 
 def run_ffmpeg_command(cmd: list[str]):
     """Runs FFMPEG using the given command"""
     subprocess.run(cmd, check=True, capture_output=True)
     print(f"Created video at {cmd[-1]}")
+
+
+def install_scoop():
+    """Installs the Scoop package manager on the local Windows system."""
+    while True:
+        print(
+            f"To install FFMPEG on Windows, we can use the Scoop package manager. \n"
+            f"See link for more info about Scoop: https://scoop.sh/ \n"
+            f"Do you wish to install Scoop? [Y/n]"
+        )
+        valid = {"yes": True, "y": True, "ye": True, "": True, "no": False, "n": False}
+        choice = input().lower()
+
+        if choice in valid and valid[choice]:
+            try:
+                # Needed for Powershell to run .ps1 scripts
+                subprocess.run(
+                    [
+                        "pwsh",
+                        "-c",
+                        "Set-ExecutionPolicy",
+                        "RemoteSigned",
+                        "-Scope",
+                        "CurrentUser",
+                    ],
+                    check=True,
+                    shell=True,
+                )
+
+                subprocess.run(
+                    ["pwsh", "-c", "irm get.scoop.sh | iex"],
+                    check=True,
+                    shell=True,
+                )
+                break
+            except subprocess.CalledProcessError as err:
+                raise RuntimeError(err)
+        elif choice in valid and not valid[choice]:
+            raise SystemExit("User refused to install Scoop. Aborting...")
+
+
+def install_ffmpeg():
+    """Installs FFMPEG on the local system if it is not present"""
+    if platform.system() == "Windows":
+        # pwsh_available = True
+        # scoop_available = True
+
+        # try:
+        #     subprocess.run(["pwsh"], check=True, capture_output=True)
+        # except subprocess.CalledProcessError:
+        #     pwsh_available = False
+
+        # try:
+        #     subprocess.run(["scoop"], check=True, capture_output=True)
+        # except subprocess.CalledProcessError:
+        #     scoop_available = False
+
+        # if scoop_available:
+        #     try:
+        #         print("FFMPEG dependency missing. Using Scoop to install FFMPEG...")
+        #         subprocess.run(["scoop", "install", "ffmpeg"], check=True, shell=True)
+        #     except subprocess.CalledProcessError as err:
+        #         raise RuntimeError(err)
+        # else:
+        print("Downloading FFMPEG")
+        urllib.request.urlretrieve(FFMPEG_URL, "ffmpeg.zip")
+        print("Download done. Unzipping...")
+        with zipfile.ZipFile("./ffmpeg.zip", "r") as zip_ref:
+            zip_ref.extractall(".")
+        os.remove("ffmpeg.zip")
+
+        os.environ["PATH"] += os.pathsep + os.path.join(
+            os.getcwd(), FFMPEG_ROOT_FOLDER, "bin"
+        )
+
+    elif platform.system() == "Linux":
+        raise NotImplementedError()
+    else:
+        raise NotImplementedError()
 
 
 def create_videos(
@@ -334,7 +417,7 @@ def create_missing_folder(path: str):
             print("Created new folder at given path.")
             break
         elif choice in valid and not valid[choice]:
-            raise SystemExit()
+            raise SystemExit("User refused to create output directory. Aborting...")
 
 
 def glob_files(
@@ -428,7 +511,7 @@ def main(*, cli_args: Optional[list[str]] = None) -> int:
         print(f"Caught error:\n{err}")
         return 2
     except BaseException as err:  # pylint:disable=broad-except
-        print("Unhandled exception occurred")
+        print("Unhandled exception occurred: \n")
         traceback.print_exception(err)
         return 2
     else:
