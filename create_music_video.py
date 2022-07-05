@@ -26,13 +26,11 @@ RESOLUTIONS = {
 
 
 def parse_args(
-    valid_vid_formats: tuple[str, ...] = VALID_VID_FORMATS,
     args: Optional[list[str]] = None,
 ) -> argparse.Namespace:
     """Parses CLI arguments into a Namespace object. Defaults to sys.argv[1:], but
     allows a list of strings to be manually passed, mainly for unit testing.
 
-    :param valid_vid_formats: Tuple of supported video file formats.
     :param args: The strings to parse as arguments, defaults to sys.argv[1:]
 
     :return: A Namespace object containing the parsed arguments.
@@ -86,7 +84,7 @@ def parse_args(
         "-vf",
         "--vid_format",
         type=str,
-        choices=valid_vid_formats,
+        choices=VALID_VID_FORMATS,
         required=False,
         default="webm",
         help="The format of the output videos. Defaults to WebM.",
@@ -379,18 +377,9 @@ def glob_files(
     return output
 
 
-def main(
-    *,
-    valid_img_formats: tuple[str, ...] = VALID_IMG_FORMATS,
-    valid_vid_formats: tuple[str, ...] = VALID_VID_FORMATS,
-    valid_aud_formats: tuple[str, ...] = VALID_AUD_FORMATS,
-    cli_args: Optional[list[str]] = None,
-) -> int:
+def main(*, cli_args: Optional[list[str]] = None) -> int:
     """The main entrypoint of this script.
 
-    :param valid_img_formats: Supported image formats, defaults to VALID_IMG_FORMATS
-    :param valid_vid_formats: Supported video formats, defaults to VALID_VID_FORMATS
-    :param valid_aud_formats: Supported audio formats, defaults to VALID_AUD_FORMATS
     :param cli_args: The CLI args to pass to parse_args(), defaults to None
 
     :raises RuntimeError: If FFMPEG is not installed on this system.
@@ -403,19 +392,19 @@ def main(
     user, and 2 if an error was caught.
     """
     try:
-        args = parse_args(valid_vid_formats, cli_args)
+        args = parse_args(cli_args)
 
         if args.formats:
             raise SystemExit(
-                f"Valid image formats: {valid_img_formats}\n"
-                f"Valid audio formats: {valid_aud_formats}\n"
-                f"Valid video formats: {valid_vid_formats}\n"
+                f"Valid image formats: {VALID_IMG_FORMATS}\n"
+                f"Valid audio formats: {VALID_AUD_FORMATS}\n"
+                f"Valid video formats: {VALID_VID_FORMATS}\n"
             )
 
         check_if_ffmpeg_is_installed()
 
-        audio_files = glob_files(args.audio_path, valid_aud_formats, args.recursive)
-        image_files = glob_files(args.image_path, valid_img_formats, args.recursive)
+        audio_files = glob_files(args.audio_path, VALID_AUD_FORMATS, args.recursive)
+        image_files = glob_files(args.image_path, VALID_IMG_FORMATS, args.recursive)
 
         if not os.path.isdir(args.output_path):
             create_missing_folder(args.output_path)
