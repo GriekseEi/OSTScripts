@@ -151,9 +151,7 @@ def check_if_ffmpeg_is_installed():
     try:
         _ = subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True)
     except subprocess.CalledProcessError:
-        return False
-    else:
-        return True
+        raise RuntimeError("FFMPEG needs to be installed for this script to work.")
 
 
 def run_ffmpeg_command(cmd: list[str]):
@@ -413,8 +411,7 @@ def main(
             )
             raise SystemExit()
 
-        if not check_if_ffmpeg_is_installed():
-            raise RuntimeError("FFMPEG needs to be installed for this script to work.")
+        check_if_ffmpeg_is_installed()
 
         audio_files = glob_files(args.audio_path, valid_aud_formats, args.recursive)
         image_files = glob_files(args.image_path, valid_img_formats, args.recursive)
