@@ -164,78 +164,94 @@ def run_ffmpeg_command(cmd: list[str]):
     print(f"Created video at {cmd[-1]}")
 
 
-def install_scoop():
-    """Installs the Scoop package manager on the local Windows system."""
-    while True:
-        print(
-            f"To install FFMPEG on Windows, we can use the Scoop package manager. \n"
-            f"See link for more info about Scoop: https://scoop.sh/ \n"
-            f"Do you wish to install Scoop? [Y/n]"
-        )
-        valid = {"yes": True, "y": True, "ye": True, "": True, "no": False, "n": False}
-        choice = input().lower()
+def install_scoop(*, as_admin: bool):
+    """Installs the Scoop command-line installer on the local system.
 
-        if choice in valid and valid[choice]:
-            try:
-                # Needed for Powershell to run .ps1 scripts
-                subprocess.run(
-                    [
-                        "pwsh",
-                        "-c",
-                        "Set-ExecutionPolicy",
-                        "RemoteSigned",
-                        "-Scope",
-                        "CurrentUser",
-                    ],
-                    check=True,
-                    shell=True,
-                )
+    :param as_admin: True if we want to install it for the admin, and False otherwise.
+    """
+    # Needed for Powershell to run .ps1 scripts
+    subprocess.run(
+        [
+            "pwsh",
+            "-c",
+            "Set-ExecutionPolicy",
+            "RemoteSigned",
+            "-Scope",
+            "CurrentUser",
+        ],
+        check=True,
+        shell=True,
+    )
 
-                subprocess.run(
-                    ["pwsh", "-c", "irm get.scoop.sh | iex"],
-                    check=True,
-                    shell=True,
-                )
-                break
-            except subprocess.CalledProcessError as err:
-                raise RuntimeError(err)
-        elif choice in valid and not valid[choice]:
-            raise SystemExit("User refused to install Scoop. Aborting...")
+    cmd = ["pwsh", "-c", "irm get.scoop.sh | iex"]
+    if as_admin:
+        cmd = ["pwsh", "-c", "iex '& {$(irm get.scoop.sh)} -RunAsAdmin'"]
+
+    subprocess.run(cmd, check=True, shell=True)
 
 
 def install_ffmpeg():
     """Installs FFMPEG on the local system if it is not present"""
     if platform.system() == "Windows":
-        # pwsh_available = True
-        # scoop_available = True
+        pwsh_available = True
 
-        # try:
-        #     subprocess.run(["pwsh"], check=True, capture_output=True)
-        # except subprocess.CalledProcessError:
-        #     pwsh_available = False
+        try:
+            subprocess.run(["scoop"], check=True, capture_output=True)
+            print("FFMPEG dependency missing. Using Scoop to install FFMPEG...")
+            subprocess.run(["scoop", "install", "ffmpeg"], check=True, shell=True)
+            return
+        except subprocess.CalledProcessError:
+            pass
 
-        # try:
-        #     subprocess.run(["scoop"], check=True, capture_output=True)
-        # except subprocess.CalledProcessError:
-        #     scoop_available = False
+        try:
+            subprocess.run(["pwsh"], check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            pwsh_available = False
 
-        # if scoop_available:
-        #     try:
-        #         print("FFMPEG dependency missing. Using Scoop to install FFMPEG...")
-        #         subprocess.run(["scoop", "install", "ffmpeg"], check=True, shell=True)
-        #     except subprocess.CalledProcessError as err:
-        #         raise RuntimeError(err)
-        # else:
-        print("Downloading FFMPEG")
+        if pwsh_available:
+            while True:
+                print(
+                    "FFMPEG dependency is missing. Do you wish to install it via: \n"
+                    "[1] (Recommended) The Scoop command-line installer. This will "
+                    "install Scoop for the current non-admin user and subsequently "
+                    "FFMPEG. NOTE: Requires that this script is NOT run as admin. \n"
+                    "[2] The above, but Scoop will be installed for the admin instead."
+                    "[3] Downloading the latest release from Github. Subsequent "
+                    "updates to FFMPEG will have to be handled manually.\n"
+                    "Enter 1, 2 or 3 to continue: "
+                )
+                choice = input()
+                if choice == 1:
+                    install_scoop(as_admin=False)
+                    subprocess.run(
+                        ["scoop", "install", "ffmpeg"], check=True, shell=True
+                    )
+                    return
+                elif choice == 2:
+                    install_scoop(as_admin=True)
+                    subprocess.run(
+                        ["scoop", "install", "ffmpeg"], check=True, shell=True
+                    )
+                    return
+                elif choice == 3:
+                    break
+
+        # This block is run when the system has no Powershell support, or when the user
+        # opts for a Github installation in the prompt above.
+        print(f"Downloading latest FFMPEG win64-86 build from {FFMPEG_URL}...")
         urllib.request.urlretrieve(FFMPEG_URL, "ffmpeg.zip")
-        print("Download done. Unzipping...")
-        with zipfile.ZipFile("./ffmpeg.zip", "r") as zip_ref:
-            zip_ref.extractall(".")
-        os.remove("ffmpeg.zip")
 
+        print(f"Download done. Unzipping at {Path.home()}...")
+        with zipfile.ZipFile("./ffmpeg.zip", "r") as zip_ref:
+            zip_ref.extractall(Path.home())
+
+        print("Unzipped FFMPEG archive. Adding FFMPEG to PATH...")
         os.environ["PATH"] += os.pathsep + os.path.join(
-            os.getcwd(), FFMPEG_ROOT_FOLDER, "bin"
+            Path.home(), FFMPEG_ROOT_FOLDER, "bin"
         )
+
+        print("Added FFMPEG to PATH. Removing downloaded FFMPEG archive...")
+        os.remove("./ffmpeg.zip")
 
     elif platform.system() == "Linux":
         raise NotImplementedError()
@@ -505,7 +521,7 @@ def main(*, cli_args: Optional[list[str]] = None) -> int:
         print(err)
         return 1
     except subprocess.CalledProcessError as err:
-        print(f"Video conversion failed.\nError message: {err.stderr}")
+        print(f"Caught error:\n{err.stderr}")
         return 2
     except (FileNotFoundError, RuntimeError, TimeoutError) as err:
         print(f"Caught error:\n{err}")
