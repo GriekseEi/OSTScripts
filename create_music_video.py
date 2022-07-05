@@ -406,12 +406,11 @@ def main(
         args = parse_args(valid_vid_formats, cli_args)
 
         if args.formats:
-            print(
+            raise SystemExit(
                 f"Valid image formats: {valid_img_formats}\n"
                 f"Valid audio formats: {valid_aud_formats}\n"
                 f"Valid video formats: {valid_vid_formats}\n"
             )
-            raise SystemExit()
 
         check_if_ffmpeg_is_installed()
 
