@@ -150,8 +150,10 @@ def check_if_ffmpeg_is_installed():
     """Checks if FFMPEG is installed locally."""
     try:
         _ = subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        raise RuntimeError("FFMPEG needs to be installed for this script to work.")
+    except subprocess.CalledProcessError as _:
+        raise RuntimeError(
+            "FFMPEG needs to be installed for this script to work."
+        ) from _
 
 
 def run_ffmpeg_command(cmd: list[str]):
@@ -428,8 +430,8 @@ def main(
             use_x265=args.use_x265,
             random_image_order=args.random_image_order,
         )
-    except (KeyboardInterrupt, SystemExit):
-        print("User aborted program. Closing...")
+    except (KeyboardInterrupt, SystemExit) as err:
+        print(err)
         return 1
     except subprocess.CalledProcessError as err:
         print(f"Video conversion failed.\nError message: {err.stderr}")
