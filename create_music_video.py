@@ -147,11 +147,11 @@ def parse_args(
 def check_if_ffmpeg_is_installed():
     """Checks if FFMPEG is installed locally."""
     try:
-        _ = subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True)
-    except subprocess.CalledProcessError as _:
-        raise RuntimeError(
-            "FFMPEG needs to be installed for this script to work."
-        ) from _
+        _ = subprocess.run(
+            ["ffmpeg", "-version"], check=True, shell=True, capture_output=True
+        )
+    except subprocess.CalledProcessError:
+        raise RuntimeError("FFMPEG needs to be installed for this script to work.")
 
 
 def run_ffmpeg_command(cmd: list[str]):
