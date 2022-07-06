@@ -25,7 +25,7 @@ RESOLUTIONS = {
     "720p": ("1280", "720"),
     "1080p": ("1920", "1080"),
 }
-FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"  # pylint:disable=line-too-long
 FFMPEG_ROOT_FOLDER = "ffmpeg-master-latest-win64-gpl"
 
 
@@ -148,14 +148,47 @@ def parse_args(
     return parser.parse_args(args)
 
 
-def check_if_ffmpeg_is_installed():
-    """Checks if FFMPEG is installed locally."""
+def is_app_installed(cmd: list[str]):
+    """Checks if a given app is installed on the current system by executing a given
+    shell command and seeing if it returns an error or not.
+
+    :param cmd: The command to execute for checking an app's presence. It should be
+                structured as a list of string arguments.
+    :return: True if the app is executable from shell, False otherwise.
+    """
     try:
-        _ = subprocess.run(
-            ["ffmpeg", "-version"], check=True, shell=True, capture_output=True
-        )
+        subprocess.run(cmd, check=True, shell=True, capture_output=True)
+        return True
     except subprocess.CalledProcessError:
-        install_ffmpeg()
+        return False
+
+
+def prompt_yes_no(message: str, yes_default: bool) -> bool:
+    """Prompts the user with a message to input either 'y'/'ye'/'yes' or 'n'/'no' in
+    order to continue. If another input is given, the prompt will be repeated until
+    the user enters a valid response. Inputs are automatically converted to lowercase.
+
+    :param message: The prompt to print to the console.
+    :param yes_default: If inputting an empty character with ENTER should be treated as
+    a 'yes' if True, and 'no' if False.
+    :return: True if the user entered 'yes', and False if 'no' was entered.
+    """
+    while True:
+        print(message)
+        valid = {
+            "yes": True,
+            "y": True,
+            "ye": True,
+            "no": False,
+            "n": False,
+            "": yes_default,
+        }
+        choice = input().lower()
+
+        if choice in valid and valid[choice]:
+            return True
+        elif choice in valid and not valid[choice]:
+            return False
 
 
 def run_ffmpeg_command(cmd: list[str]):
@@ -168,6 +201,8 @@ def install_scoop(*, as_admin: bool):
     """Installs the Scoop command-line installer on the local system.
 
     :param as_admin: True if we want to install it for the admin, and False otherwise.
+
+    :raises CalledProcessErr: If the Scoop installation fails.
     """
     # Needed for Powershell to run .ps1 scripts
     subprocess.run(
@@ -185,78 +220,68 @@ def install_scoop(*, as_admin: bool):
 
     cmd = ["pwsh", "-c", "irm get.scoop.sh | iex"]
     if as_admin:
-        cmd = ["pwsh", "-c", "iex '& {$(irm get.scoop.sh)} -RunAsAdmin'"]
+        cmd = ["pwsh", "-c", "iex", '"&', "{$(irm get.scoop.sh)}", '-RunAsAdmin"']
 
     subprocess.run(cmd, check=True, shell=True)
 
 
-def install_ffmpeg():
-    """Installs FFMPEG on the local system if it is not present"""
-    if platform.system() == "Windows":
-        pwsh_available = True
+def install_ffmpeg_windows():
+    """Installs FFMPEG on the local Windows system if it is not present"""
+    if is_app_installed(["scoop"]):
+        print("FFMPEG dependency missing. Using Scoop to install FFMPEG...")
+        subprocess.run(["scoop", "install", "ffmpeg"], check=True, shell=True)
+        return
 
-        try:
-            subprocess.run(["scoop"], check=True, capture_output=True)
-            print("FFMPEG dependency missing. Using Scoop to install FFMPEG...")
-            subprocess.run(["scoop", "install", "ffmpeg"], check=True, shell=True)
-            return
-        except subprocess.CalledProcessError:
-            pass
+    ffmpeg_path = ""
+    try:
+        ffmpeg_path = Path.home()
+    except RuntimeError:
+        ffmpeg_path = os.getcwd()
+    ffmpeg_binaries_path = os.path.join(ffmpeg_path, FFMPEG_ROOT_FOLDER, "bin")
+    ffmpeg_exists = os.path.isfile(os.path.join(ffmpeg_binaries_path, "ffmpeg.exe"))
 
-        try:
-            subprocess.run(["pwsh"], check=True, capture_output=True)
-        except subprocess.CalledProcessError:
-            pwsh_available = False
+    if is_app_installed(["pwsh", "-c", "$PSVersionTable"]) and not ffmpeg_exists:
+        while True:
+            print(
+                "FFMPEG dependency is missing. Do you wish to install it via: \n"
+                "[1] (Recommended) The Scoop command-line installer. This will "
+                "install Scoop for the current non-admin user and subsequently "
+                "FFMPEG. NOTE: Requires that this script is NOT run as admin. \n"
+                "[2] The above, but Scoop will be installed as an admin instead.\n"
+                "[3] Downloading the latest release from Github. Subsequent "
+                "updates to FFMPEG will have to be handled manually.\n"
+                "Enter 1, 2 or 3 to continue: "
+            )
+            choice = input()
+            if choice == "1" or choice == "2":
+                as_admin = False if choice == "1" else True
+                install_scoop(as_admin=as_admin)
+                subprocess.run(["scoop", "install", "ffmpeg"], check=True, shell=True)
+                return
+            elif choice == "3":
+                break
 
-        if pwsh_available:
-            while True:
-                print(
-                    "FFMPEG dependency is missing. Do you wish to install it via: \n"
-                    "[1] (Recommended) The Scoop command-line installer. This will "
-                    "install Scoop for the current non-admin user and subsequently "
-                    "FFMPEG. NOTE: Requires that this script is NOT run as admin. \n"
-                    "[2] The above, but Scoop will be installed for the admin instead."
-                    "[3] Downloading the latest release from Github. Subsequent "
-                    "updates to FFMPEG will have to be handled manually.\n"
-                    "Enter 1, 2 or 3 to continue: "
-                )
-                choice = input()
-                if choice == 1:
-                    install_scoop(as_admin=False)
-                    subprocess.run(
-                        ["scoop", "install", "ffmpeg"], check=True, shell=True
-                    )
-                    return
-                elif choice == 2:
-                    install_scoop(as_admin=True)
-                    subprocess.run(
-                        ["scoop", "install", "ffmpeg"], check=True, shell=True
-                    )
-                    return
-                elif choice == 3:
-                    break
-
-        # This block is run when the system has no Powershell support, or when the user
-        # opts for a Github installation in the prompt above.
-        print(f"Downloading latest FFMPEG win64-86 build from {FFMPEG_URL}...")
+    # This block is run when the system has no Powershell support, or when the user
+    # opts for a Github release installation in the prompt above
+    if not ffmpeg_exists:
+        print(f"Downloading latest FFMPEG win64 build from {FFMPEG_URL}...")
         urllib.request.urlretrieve(FFMPEG_URL, "ffmpeg.zip")
 
-        print(f"Download done. Unzipping at {Path.home()}...")
+        print(f"Download done. Unzipping at {ffmpeg_path}...")
         with zipfile.ZipFile("./ffmpeg.zip", "r") as zip_ref:
-            zip_ref.extractall(Path.home())
+            zip_ref.extractall(ffmpeg_path)
 
-        print("Unzipped FFMPEG archive. Adding FFMPEG to PATH...")
-        os.environ["PATH"] += os.pathsep + os.path.join(
-            Path.home(), FFMPEG_ROOT_FOLDER, "bin"
-        )
-
-        print("Added FFMPEG to PATH. Removing downloaded FFMPEG archive...")
+        print("Unzipped FFMPEG archive. Removing archive file...")
         os.remove("./ffmpeg.zip")
 
-    elif platform.system() == "Linux":
-        raise NotImplementedError()
-    else:
-        raise NotImplementedError()
+    print(
+        "Adding FFMPEG to PATH for this session...\n"
+        "WARNING: FFMPEG is only present in PATH for the current session.\n"
+        "It is recommended that you manually add the directory containing the "
+        f"FFMPEG binaries (currently {ffmpeg_binaries_path}) to your PATH environment "
+        "variable."
+    )
+    os.environ["PATH"] += os.pathsep + ffmpeg_binaries_path
 
 
 def create_videos(
@@ -420,20 +445,16 @@ def create_missing_folder(path: str):
     :param path: The name of the folders to create.
     :raises SystemExit: If the user decides not to create a new folder.
     """
-    while True:
-        print(
-            f"Could not find output folder '{os.path.join(os.getcwd(), path)}'.\n"
-            f"Do you want to create this folder? [Y/n]"
-        )
-        valid = {"yes": True, "y": True, "ye": True, "": True, "no": False, "n": False}
-        choice = input().lower()
+    msg = (
+        f"Could not find output folder '{os.path.join(os.getcwd(), path)}'.\n"
+        f"Do you want to create this folder? [Y/n]"
+    )
 
-        if choice in valid and valid[choice]:
-            os.makedirs(path)
-            print("Created new folder at given path.")
-            break
-        elif choice in valid and not valid[choice]:
-            raise SystemExit("User refused to create output directory. Aborting...")
+    if prompt_yes_no(msg, True):
+        os.makedirs(path)
+        print("Created new folder at given path.")
+    else:
+        raise SystemExit("User refused to create output directory. Aborting...")
 
 
 def glob_files(
@@ -500,7 +521,9 @@ def main(*, cli_args: Optional[list[str]] = None) -> int:
                 f"Valid video formats: {VALID_VID_FORMATS}\n"
             )
 
-        check_if_ffmpeg_is_installed()
+        if not is_app_installed(["ffmpeg", "-version"]):
+            if platform.system() == "Windows":
+                install_ffmpeg_windows()
 
         audio_files = glob_files(args.audio_path, VALID_AUD_FORMATS, args.recursive)
         image_files = glob_files(args.image_path, VALID_IMG_FORMATS, args.recursive)
@@ -524,10 +547,10 @@ def main(*, cli_args: Optional[list[str]] = None) -> int:
         print(f"Caught error:\n{err.stderr}")
         return 2
     except (FileNotFoundError, RuntimeError, TimeoutError) as err:
-        print(f"Caught error:\n{err}")
+        print(f"Caught {type(err).__name__}:\n{err}")
         return 2
     except BaseException as err:  # pylint:disable=broad-except
-        print("Unhandled exception occurred: \n")
+        print(f"Unhandled exception occurred of type {type(err).__name__}: \n")
         traceback.print_exception(err)
         return 2
     else:
