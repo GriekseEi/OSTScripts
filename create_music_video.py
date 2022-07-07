@@ -187,7 +187,7 @@ def prompt_yes_no(message: str, yes_default: bool) -> bool:
 
         if choice in valid and valid[choice]:
             return True
-        elif choice in valid and not valid[choice]:
+        if choice in valid and not valid[choice]:
             return False
 
 
@@ -253,12 +253,12 @@ def install_ffmpeg_windows():
                 "Enter 1, 2 or 3 to continue: "
             )
             choice = input()
-            if choice == "1" or choice == "2":
+            if choice in ("1", "2"):
                 as_admin = False if choice == "1" else True
                 install_scoop(as_admin=as_admin)
                 subprocess.run(["scoop", "install", "ffmpeg"], check=True, shell=True)
                 return
-            elif choice == "3":
+            if choice == "3":
                 break
 
     # This block is run when the system has no Powershell support, or when the user
@@ -335,11 +335,11 @@ def create_videos(
     aud_codec = "copy"  # Use the same audio codec as the source audio
     vid_codec = "libx264"
 
-    if vid_format == "webm":
+    if use_x265:
+        vid_codec = "libx265"
+    elif vid_format == "webm":
         vid_codec = "libvpx-vp9"
         aud_codec = "libvorbis"
-    elif use_x265:
-        vid_codec = "libx265"
 
     commands = []
     img_list_index = 0
@@ -522,8 +522,15 @@ def main(*, cli_args: Optional[list[str]] = None) -> int:
             )
 
         if not is_app_installed(["ffmpeg", "-version"]):
-            if platform.system() == "Windows":
+            current_os = platform.system()
+            if current_os == "Windows":
                 install_ffmpeg_windows()
+            elif current_os == "Linux":
+                raise SystemExit(
+                    "This script requires FFMPEG to work. Please install FFMPEG with "
+                    "your local package manager (f.e. 'sudo apt install ffmpeg' if "
+                    "you're using Ubuntu or Debian) before running this script."
+                )
 
         audio_files = glob_files(args.audio_path, VALID_AUD_FORMATS, args.recursive)
         image_files = glob_files(args.image_path, VALID_IMG_FORMATS, args.recursive)
@@ -544,9 +551,9 @@ def main(*, cli_args: Optional[list[str]] = None) -> int:
         print(err)
         return 1
     except subprocess.CalledProcessError as err:
-        print(f"Caught error:\n{err.stderr}")
+        print(f"Caught subprocess error:\n{err.stderr}")
         return 2
-    except (FileNotFoundError, RuntimeError, TimeoutError) as err:
+    except (FileNotFoundError, RuntimeError, TimeoutError, OSError) as err:
         print(f"Caught {type(err).__name__}:\n{err}")
         return 2
     except BaseException as err:  # pylint:disable=broad-except
