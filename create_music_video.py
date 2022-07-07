@@ -112,12 +112,12 @@ def run_multiprocessed(func, commands: Iterable) -> list:
             # something unreasonably high to prevent most timeouts
             result = result.get(0xFFF)
             pool.close()
-            pool.join()
             return result
         except (TimeoutError, KeyboardInterrupt) as err:
             pool.terminate()
-            pool.join()
             raise err
+        finally:
+            pool.join()
 
 
 def create_missing_folder(path: str):
