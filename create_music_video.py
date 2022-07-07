@@ -589,6 +589,10 @@ def main(*, cli_args: Optional[list[str]] = None) -> int:
         return 2
     else:
         return 0  # Success!
+    finally:
+        # Workaround for bash not showing inputs anymore after running this script
+        if platform.system() == "Linux":
+            subprocess.run(["stty", "sane"], check=True)
 
 
 if __name__ == "__main__":
