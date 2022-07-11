@@ -9,6 +9,9 @@ name = "pypi"
 pytest = "*"
 black = "*"
 pylint = "*"
+atomicwrites = "*"
+pyfakefs = "*"
+pytest-mock = "*"
 
 [requires]
 python_version = "3.10"
