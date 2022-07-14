@@ -300,7 +300,7 @@ def parse_args(
 
     def convert_relative_path_to_absolute(path: str):
         """Convert relative paths to absolute for better console log clarity"""
-        if not os.path.abspath(path) or path == '':
+        if not os.path.abspath(path) or path == "":
             return os.path.join(os.getcwd(), path)
         return path
 
@@ -512,6 +512,7 @@ def create_videos(
         # video where necessary (without downscaling anything) if we use x264.
         new_command[14:14] = ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]
 
+    # Build a list of FFMPEG commands to execute in bulk
     commands = []
     img_list_index = 0
     for audio in audio_paths:
@@ -543,16 +544,18 @@ def create_videos(
 def main(*, cli_args: Optional[Sequence[str]] = None) -> int:
     """The main entrypoint of this script.
 
-    :param cli_args: The CLI args to pass to parse_args(), defaults to None
+    :param cli_args: The custom CLI args to pass to parse_args(), defaults to None
 
     :raises RuntimeError: If FFMPEG is not installed on this system.
     :raises FileNotFoundError: If given path points to no files of a supported format
     or directory.
     :raises TimeoutError: If the process takes too long to complete. Timeout is set to
     4096 seconds.
+    :raises CalledProcessError: If something went wrong inside one of the subprocesses,
+    such as within FFMPEG, scoop, powershell, etc.
+    :raises SystemExit: If the user has chosen to abort this script during a prompt.
 
-    :return: 0 if program was successfully completed, 1 if program was aborted by the
-    user, and 2 if an error was caught.
+    :return: 0 if program was successfully completed.
     """
     try:
         args = parse_args(cli_args)
@@ -595,17 +598,14 @@ def main(*, cli_args: Optional[Sequence[str]] = None) -> int:
             use_x265=args.use_x265,
             random_image_order=args.random_image_order,
         )
-    except (KeyboardInterrupt, SystemExit) as msg:
-        print(msg)
-        raise msg
-    except subprocess.CalledProcessError as err:
-        print(f"Caught subprocess error:\n")
-        raise err
-    except (FileNotFoundError, RuntimeError, TimeoutError, OSError) as err:
-        print(f"Caught {type(err).__name__}:\n")
-        raise err
-    except BaseException as err:  # pylint:disable=broad-except
-        print(f"Unhandled exception occurred of type {type(err).__name__}: \n")
+    except (
+        KeyboardInterrupt,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+        SystemExit,
+        RuntimeError,
+        TimeoutError
+    ) as err:
         raise err
     else:
         return 0  # Success!

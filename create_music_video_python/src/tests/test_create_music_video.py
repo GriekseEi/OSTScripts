@@ -49,14 +49,13 @@ def test_argument_parser_exits_if_no_arguments_are_passed():
         ["-f", "-a", "test.mp3", "-i", "test.jpg"],
     ),
 )
-def test_format_switch_prints_all_formats(args, capfd):
-    with pytest.raises(SystemExit):
+def test_format_switch_prints_all_formats(args):
+    with pytest.raises(SystemExit) as err:
         cmv.main(cli_args=args)
-    out = capfd.readouterr().out
 
-    assert str(cmv.VALID_IMG_FORMATS) in out
-    assert str(cmv.VALID_AUD_FORMATS) in out
-    assert str(cmv.VALID_VID_FORMATS) in out
+    assert str(cmv.VALID_IMG_FORMATS) in str(err)
+    assert str(cmv.VALID_AUD_FORMATS) in str(err)
+    assert str(cmv.VALID_VID_FORMATS) in str(err)
 
 
 def test_installs_ffmpeg_on_windows_if_not_present(mocker: MockerFixture):
