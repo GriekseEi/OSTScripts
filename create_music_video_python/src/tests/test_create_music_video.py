@@ -1,6 +1,7 @@
 # pylint:disable=missing-function-docstring,unused-argument
 import os
 import random
+import re
 from unittest.mock import MagicMock
 
 import pytest
@@ -270,7 +271,14 @@ def test_create_videos_iterates_through_images_randomly_if_opted_for(
 
 
 @pytest.mark.parametrize(
-    "out_folder, out_format", [("./", "webm"), ("./output", "wmv"), ("./output", "mp4"), (".", "mov"), ("", "webm")]
+    "out_folder, out_format",
+    [
+        ("./", "webm"),
+        ("./output", "wmv"),
+        ("./output", "mp4"),
+        (".", "mov"),
+        ("", "webm"),
+    ],
 )
 def test_create_videos_builds_correct_output_filenames(
     out_folder, out_format, fake_fs: FakeFilesystem, fixture_cv: MagicMock
@@ -281,8 +289,43 @@ def test_create_videos_builds_correct_output_filenames(
 
     assert res == 0
     assert len(fixture_cv.mock_calls) == 7
-    if out_folder == '':
-        out_folder = '/'
+    if out_folder == "":
+        out_folder = "/"
     for index, call in enumerate(fixture_cv.mock_calls):
         expected_filename = os.path.join(out_folder, f"song{index + 1}.{out_format}")
         assert expected_filename in call.args[0]
+
+
+@pytest.mark.parametrize(
+    "start_time, end_time, ndigits, expected",
+    [
+        (6, 9, None, "3"),
+        (8.5, 13.2, 1, "4.7"),
+        (7.234235, 10.4444, None, "3"),
+        (3.2495, 10, 4, "6.7505"),
+    ],
+)
+def test_track_elapsed_time(
+    start_time, end_time, ndigits, expected, mocker: MockerFixture, capfd
+):
+    mock_time = mocker.patch("time.perf_counter")
+
+    # Return the start_time the first time that time.perf_counter is called,
+    # and the end_time for the second time
+    def time_side_effect(*args, **kwargs):
+        if len(mock_time.mock_calls) == 1:
+            return start_time
+        elif len(mock_time.mock_calls) == 2:
+            return end_time
+
+    mock_time.side_effect = time_side_effect
+
+    @cmv.track_elapsed_time(ndigits=ndigits)
+    def test_function():
+        print("Hello, World!")
+
+    test_function()
+    output = capfd.readouterr().out
+    elapsed_time = re.findall(r"[-+]?(?:\d*\.\d+|\d+)", output)
+
+    assert elapsed_time[0] == expected

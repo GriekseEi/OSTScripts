@@ -29,6 +29,28 @@ FFMPEG_ROOT_FOLDER = "ffmpeg-master-latest-win64-gpl"
 
 
 # ! UTILITY FUNCTIONS -----------------------------------------------------------------
+def track_elapsed_time(ndigits: Optional[int] = 4):
+    """Decorator that tracks the execution time of the given function and prints it to
+    stdout.
+
+    :param ndigits: How many digits the elapsed time should be rounded to.
+    Defaults to 4. If None, then the elapsed time will be rounded down to an integer.
+    """
+
+    def inner(func):
+        def wrapper(*args, **kwargs):
+            start_time = time.perf_counter()
+            res = func(*args, **kwargs)
+            end_time = time.perf_counter()
+
+            print(f"Finished operation in {round((end_time - start_time), ndigits)}s!")
+            return res
+
+        return wrapper
+
+    return inner
+
+
 def is_app_installed(cmd: Sequence[str]) -> bool:
     """Checks if a given app is installed on the current system by executing a given
     shell command and seeing if it returns an error or not.
@@ -412,6 +434,7 @@ def run_ffmpeg_command(cmd: list[str]):
     print(f"Created video at {cmd[-1]}")
 
 
+@track_elapsed_time(ndigits=4)
 def create_videos(
     *,
     audio_paths: Sequence[str],
@@ -459,8 +482,6 @@ def create_videos(
 
     [1]: https://stackoverflow.com/questions/55800185/my-ffmpeg-output-always-add-extra-30s-of-silence-at-the-end  # pylint:disable=line-too-long
     """
-    start_time = time.perf_counter()
-
     aud_codec = "copy"  # Use the same audio codec as the source audio
     vid_codec = "libx264"
 
@@ -537,9 +558,6 @@ def create_videos(
         for cmd in commands:
             run_ffmpeg_command(cmd)
 
-    end_time = time.perf_counter()
-    print(f"Finished operation in {round((end_time - start_time), 4)}s!")
-
 
 def main(*, cli_args: Optional[Sequence[str]] = None) -> int:
     """The main entrypoint of this script.
@@ -604,7 +622,7 @@ def main(*, cli_args: Optional[Sequence[str]] = None) -> int:
         FileNotFoundError,
         SystemExit,
         RuntimeError,
-        TimeoutError
+        TimeoutError,
     ) as err:
         raise err
     else:
