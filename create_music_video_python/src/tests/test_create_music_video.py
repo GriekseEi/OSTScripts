@@ -61,7 +61,7 @@ def test_format_switch_prints_all_formats(args):
 
 def test_installs_ffmpeg_on_windows_if_not_present(mocker: MockerFixture):
     # End main function prematurely after doing install_ffmpeg_windows
-    def glob_side_effect(a, b, c):
+    def glob_side_effect(alpha, beta, gamma):
         raise SystemExit()
 
     mocked_glob = mocker.patch("src.create_music_video.glob_files")
@@ -297,26 +297,25 @@ def test_create_videos_builds_correct_output_filenames(
 
 
 @pytest.mark.parametrize(
-    "start_time, end_time, ndigits, expected",
+    "start_time, end_time, ndigits",
     [
-        (6, 9, None, "3"),
-        (8.5, 13.2, 1, "4.7"),
-        (7.234235, 10.4444, None, "3"),
-        (3.2495, 10, 4, "6.7505"),
+        (6, 9, None),
+        (8.5, 13.2, 1),
+        (7.234235, 10.4444, None),
+        (3.2495, 10, 4),
     ],
 )
 def test_track_elapsed_time(
-    start_time, end_time, ndigits, expected, mocker: MockerFixture, capfd
+    start_time, end_time, ndigits, mocker: MockerFixture, capfd
 ):
     mock_time = mocker.patch("time.perf_counter")
 
     # Return the start_time the first time that time.perf_counter is called,
     # and the end_time for the second time
-    def time_side_effect(*args, **kwargs):
+    def time_side_effect():
         if len(mock_time.mock_calls) == 1:
             return start_time
-        elif len(mock_time.mock_calls) == 2:
-            return end_time
+        return end_time
 
     mock_time.side_effect = time_side_effect
 
@@ -328,4 +327,4 @@ def test_track_elapsed_time(
     output = capfd.readouterr().out
     elapsed_time = re.findall(r"[-+]?(?:\d*\.\d+|\d+)", output)
 
-    assert elapsed_time[0] == expected
+    assert elapsed_time[0] == str(round(end_time - start_time, ndigits=ndigits))
