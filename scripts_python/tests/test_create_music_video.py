@@ -1,13 +1,17 @@
 # pylint:disable=missing-function-docstring,unused-argument
 import os
 import random
-import re
 from unittest.mock import MagicMock
 
+import create_music_video as cmv
 import pytest
-import src.create_music_video as cmv
 from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest_mock.plugin import MockerFixture
+
+from tests.test_utility_functions import UTIL_PATH
+
+# alias for cmv when we need to mock functions
+CMV_PATH = "create_music_video"
 
 
 @pytest.fixture(name="fake_fs", scope="function")
@@ -33,8 +37,8 @@ def fixture_fake_filesystem(fs: FakeFilesystem):  # pylint:disable=invalid-name
 def fixture_cv(mocker: MockerFixture):
     # Disable parallel processing for compatibility's sake
     mocker.patch("multiprocessing.cpu_count", return_value=1)
-    mocker.patch("src.create_music_video.is_app_installed", return_value=True)
-    return mocker.patch("src.create_music_video.run_ffmpeg_command")
+    mocker.patch(f"{UTIL_PATH}.is_app_installed", return_value=True)
+    return mocker.patch(f"{CMV_PATH}.run_ffmpeg_command")
 
 
 def test_argument_parser_exits_if_no_arguments_are_passed():
@@ -64,12 +68,12 @@ def test_installs_ffmpeg_on_windows_if_not_present(mocker: MockerFixture):
     def glob_side_effect(alpha, beta, gamma):
         raise SystemExit()
 
-    mocked_glob = mocker.patch("src.create_music_video.glob_files")
+    mocked_glob = mocker.patch(f"{UTIL_PATH}.glob_files")
     mocked_glob.side_effect = glob_side_effect
     mocker.patch("platform.system", return_value="Windows")
-    mocker.patch("src.create_music_video.is_app_installed", return_value=False)
+    mocker.patch(f"{UTIL_PATH}.is_app_installed", return_value=False)
     mocked_install: MagicMock = mocker.patch(
-        "src.create_music_video.install_ffmpeg_windows", return_value=None
+        f"{CMV_PATH}.install_ffmpeg_windows", return_value=None
     )
 
     with pytest.raises(SystemExit):
@@ -83,56 +87,26 @@ def test_notifies_non_windows_user_if_ffmpeg_not_present(
     system_name, mocker: MockerFixture
 ):
     mocker.patch("platform.system", return_value=system_name)
-    mocker.patch("src.create_music_video.is_app_installed", return_value=False)
+    mocker.patch(f"{UTIL_PATH}.is_app_installed", return_value=False)
 
     with pytest.raises(SystemExit):
         cmv.main(cli_args=["-a", "a", "-i", "b", "-o", "c"])
-
-
-@pytest.mark.parametrize(
-    "path, file_format, recursive, expected_count",
-    [
-        ("./test/song1.mp3", (".mp3",), False, 1),
-        ("./test", (".mp3",), False, 5),
-        ("./test", (".mp3",), True, 7),
-        ("./test", (".mp3", ".mp2"), True, 8),
-    ],
-)
-def test_glob_files(
-    path, file_format, recursive, expected_count, fake_fs: FakeFilesystem
-):
-    res = cmv.glob_files(path, file_format, recursive)
-
-    assert len(res) == expected_count
-
-
-def test_glob_files_returns_error_if_no_files_found(fake_fs: FakeFilesystem):
-    with pytest.raises(FileNotFoundError):
-        cmv.glob_files("./test", (".mpx",), False)
-
-
-def test_creates_missing_output_folder(mocker: MockerFixture, fake_fs: FakeFilesystem):
-    mocker.patch("src.create_music_video.prompt_yes_no", return_value=True)
-
-    cmv.create_missing_folder("./testpath")
-
-    assert os.path.exists("./testpath")
 
 
 @pytest.mark.parametrize("user_input", ["1", "2"])
 def test_install_ffmpeg_windows_installs_scoop_if_prompted(
     user_input, mocker: MockerFixture
 ):
-    def is_app_installed_side_effect(*args, **kwargs):
+    def is_app_installed_side_effect(*args):
         if args[0] == ["scoop"]:
             return False
         return True
 
-    mock_app: MagicMock = mocker.patch("src.create_music_video.is_app_installed")
+    mock_app: MagicMock = mocker.patch(f"{UTIL_PATH}.is_app_installed")
     mock_app.side_effect = is_app_installed_side_effect
     mocker.patch("builtins.input", return_value=user_input)
     mocker.patch("subprocess.run", return_value=True)
-    mock_scoop: MagicMock = mocker.patch("src.create_music_video.install_scoop")
+    mock_scoop: MagicMock = mocker.patch(f"{CMV_PATH}.install_scoop")
 
     cmv.install_ffmpeg_windows()
 
@@ -140,32 +114,12 @@ def test_install_ffmpeg_windows_installs_scoop_if_prompted(
 
 
 def test_install_ffmpeg_windows_downloads_git_build_if_prompted(mocker: MockerFixture):
-    mocker.patch("src.create_music_video.is_app_installed", return_value=False)
-    mck: MagicMock = mocker.patch("src.create_music_video.download_ffmpeg_git_build")
+    mocker.patch(f"{UTIL_PATH}.is_app_installed", return_value=False)
+    mck: MagicMock = mocker.patch(f"{CMV_PATH}.download_ffmpeg_git_build")
 
     cmv.install_ffmpeg_windows()
 
     mck.assert_called_once()
-
-
-@pytest.mark.parametrize("cores", [1, 2])
-def test_run_multiprocessing_ends_if_not_enough_cores(cores, mocker: MockerFixture):
-    mocker.patch("multiprocessing.cpu_count", return_value=cores)
-
-    with pytest.raises(RuntimeError):
-        cmv.run_multiprocessed(MagicMock, ["test"])
-
-
-def job(arg_1, arg_2):
-    return arg_1 + arg_2
-
-
-def test_run_multiprocessing(mocker: MockerFixture):
-    mocker.patch("multiprocessing.cpu_count", return_value=4)
-
-    res = cmv.run_multiprocessed(job, [(1, 2), (3, 4), (5, 6)])
-
-    assert res == [3, 7, 11]
 
 
 scale_string = (
@@ -202,31 +156,6 @@ def test_create_videos_builds_correct_commands_with_different_encoders_and_resol
     for call in fixture_cv.mock_calls:
         assert all(elem in call.args[0] for elem in args_to_check)
         assert call.args[0][-1].endswith(out_format)
-
-
-@pytest.mark.parametrize(
-    "arg, expected",
-    [
-        ("yes", True),
-        ("no", False),
-        ("YES", True),
-        ("NO", False),
-        ("Y", True),
-        ("N", False),
-        ("YE s", False),
-        ("", True),
-        ("y", True),
-        ("n", False),
-        ("uhadiuui", False),
-        ("1", False),
-        ("0", False),
-    ],
-)
-def test_prompt_yes_no_handles_inputs_correctly(
-    arg: str, expected: bool, mocker: MockerFixture
-):
-    mocker.patch("builtins.input", return_value=arg)
-    assert cmv.prompt_yes_no("", True, max_iterations=1) is expected
 
 
 def test_create_videos_iterates_through_multiple_images_if_provided(
@@ -294,37 +223,3 @@ def test_create_videos_builds_correct_output_filenames(
     for index, call in enumerate(fixture_cv.mock_calls):
         expected_filename = os.path.join(out_folder, f"song{index + 1}.{out_format}")
         assert expected_filename in call.args[0]
-
-
-@pytest.mark.parametrize(
-    "start_time, end_time, ndigits",
-    [
-        (6, 9, None),
-        (8.5, 13.2, 1),
-        (7.234235, 10.4444, None),
-        (3.2495, 10, 4),
-    ],
-)
-def test_track_elapsed_time(
-    start_time, end_time, ndigits, mocker: MockerFixture, capfd
-):
-    mock_time = mocker.patch("time.perf_counter")
-
-    # Return the start_time the first time that time.perf_counter is called,
-    # and the end_time for the second time
-    def time_side_effect():
-        if len(mock_time.mock_calls) == 1:
-            return start_time
-        return end_time
-
-    mock_time.side_effect = time_side_effect
-
-    @cmv.track_elapsed_time(ndigits=ndigits)
-    def test_function():
-        print("Hello, World!")
-
-    test_function()
-    output = capfd.readouterr().out
-    elapsed_time = re.findall(r"[-+]?(?:\d*\.\d+|\d+)", output)
-
-    assert elapsed_time[0] == str(round(end_time - start_time, ndigits=ndigits))
