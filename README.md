@@ -16,7 +16,7 @@ A repository of assorted scripts to automate the creation and uploading of music
 
 ## Scripts
 
-### create_music_video_python
+### create_music_video.py
 
 A cross-platform Python script using [FFMPEG](https://ffmpeg.org/) and Python standard libraries only that takes in one or more images and one or more audio files to create a video for every audio file displaying the given static image(s). Has multiple options that allow you to encode the music videos in different resolutions and video codecs.
 
@@ -91,6 +91,17 @@ The scripts allows for a range of options, which can also be printed in your ter
 #### Known Issues
 
 - On Windows, the script refuses to terminate itself and its subprocesses properly when inputting CTRL+C.
+
+### utility_functions.py
+
+A Python module containing a bunch of utility functions meant for general reuse in other scripts. They include the following:
+
+- `track_elapsed_time()`: A decorator function for tracking the execution time of a given function and printing it.
+- `is_app_installed()`: Checks if a command-line application is available on the local system.
+- `prompt_yes_no()`: Prompts the user repeatedly with a message to input Y(es)/N(o) in response to a prompt.
+- `run_multiprocessed()`: Runs a given function with the given commands in parallel across different subprocesses, if the host system supports parallel operations.
+- `creates_missing_folder()`: Creates a missing folder if it doesn't exist yet.
+- `glob_files()`: Globs a given path for files of the given supported filetypes.
 
 ## Development
 
