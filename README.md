@@ -77,7 +77,7 @@ The scripts allows for a range of options, which can also be printed in your ter
 - `-x` / `--use-x265`: (*Optional*) Toggles whether to use [x265](https://en.wikipedia.org/wiki/X265) encoding for the output videos. By default x264 is used for all output videos (except for WebMs, which don't support it and will and are set by the script to always use [VP9](https://en.wikipedia.org/wiki/VP9) encoding) because YouTube tends to process those faster.
 - `-r` / `--recursive`: (*Optional*) Whether to also include all the image/audio files in the subdirectories of the given audio/image paths.
 - `-rng` / `--random-image-order`: (*Optional*) If given a list of images, then the script will choose a random one for each video.
-- `-res RESOLUTION` / `--resolution RESOLUTION`: (*Optional*) The resolution type to use for the output videos, or at least what [YouTube understands under each resolution type](https://influencermarketinghub.com/youtube-video-size). By default uses the resolution of the input images. Currently supported resolution types are `360p` (640x360), `480p` (854x480), `720p` (1280x720), and `1080p` (1920x1080).
+- `-res RESOLUTION` / `--resolution RESOLUTION`: (*Optional*) The resolution type to use for the output videos, or at least what [YouTube understands under each resolution type](https://influencermarketinghub.com/youtube-video-size). By default uses the resolution of the input images. Currently supported resolution types are `360p` (640x360), `480p` (854x480), `720p` (1280x720), and `1080p` (1920x1080). The script will downscale the image to the target resolution while maintaining the original aspect ratio, and pad the sides of the image with black bars if necessary.
 
     *Example usage*:
 
