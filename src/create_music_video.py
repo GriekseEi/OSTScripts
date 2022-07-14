@@ -8,12 +8,11 @@ import signal
 import subprocess
 import sys
 import time
-import traceback
 import urllib.request
 import zipfile
 from glob import glob
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Sequence
 
 VALID_AUD_FORMATS = (".mp3", ".wav", ".flac", ".wma", ".opus", ".ogg")
 VALID_IMG_FORMATS = (".jpg", ".jpeg", ".png", ".bmp")
@@ -30,7 +29,7 @@ FFMPEG_ROOT_FOLDER = "ffmpeg-master-latest-win64-gpl"
 
 
 # ! UTILITY FUNCTIONS -----------------------------------------------------------------
-def is_app_installed(cmd: list[str]) -> bool:
+def is_app_installed(cmd: Sequence[str]) -> bool:
     """Checks if a given app is installed on the current system by executing a given
     shell command and seeing if it returns an error or not.
 
@@ -45,7 +44,7 @@ def is_app_installed(cmd: list[str]) -> bool:
         return False
 
 
-def prompt_yes_no(message: str, yes_default: bool) -> bool:
+def prompt_yes_no(message: str, yes_default: bool, *, max_iterations: int = 5) -> bool:
     """Prompts the user with a message to input either 'y'/'ye'/'yes' or 'n'/'no' in
     order to continue. If another input is given, the prompt will be repeated until
     the user enters a valid response. Inputs are automatically converted to lowercase.
@@ -53,9 +52,13 @@ def prompt_yes_no(message: str, yes_default: bool) -> bool:
     :param message: The prompt to print to the console.
     :param yes_default: If inputting an empty character with ENTER should be treated as
     a 'yes' if True, and 'no' if False.
-    :return: True if the user entered 'yes', and False if 'no' was entered.
+    :param total_iterations: How often we will loop the prompt on invalid answers until
+    we automatically escape it.
+    :return: True if the user entered 'yes', and False if 'no' was entered or if too
+    many invalid answers were given.
     """
-    while True:
+    while max_iterations > 0:
+        max_iterations -= 1
         print(message)
         valid = {
             "yes": True,
@@ -71,6 +74,8 @@ def prompt_yes_no(message: str, yes_default: bool) -> bool:
             return True
         if choice in valid and not valid[choice]:
             return False
+    print("Too many invalid responses were given, shutting down program...")
+    return False
 
 
 def run_multiprocessed(func, commands: Iterable) -> list:
@@ -97,10 +102,14 @@ def run_multiprocessed(func, commands: Iterable) -> list:
     limit is set to 4096 seconds.)
     :return: A list of results from the target function
     """
+    pool_size = multiprocessing.cpu_count() - 1
+    if pool_size < 2:
+        raise RuntimeError("Need more than 2 CPU cores for parallel processing")
+
     # Ignore SIGINT in the main process, so that the child processes created by
     # instantiating the pool will inherit the SIGINT handler
     original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-    with multiprocessing.Pool(multiprocessing.cpu_count() - 1) as pool:
+    with multiprocessing.Pool(pool_size) as pool:
         # Restore the original SIGINT handler in the main process so that we can
         # actually catch KeyboardInterrupts from here
         signal.signal(signal.SIGINT, original_sigint_handler)
@@ -142,7 +151,7 @@ def glob_files(
     path: str,
     valid_formats: tuple[str, ...],
     recursive: bool = False,
-) -> list[str]:
+) -> Sequence[str]:
     """Returns a list of all filenames in the given directory that support the given
     formats if the given path is a directory, or returns a list of only one path if
     the given path points to a single file. The paths in the list are sorted
@@ -161,26 +170,30 @@ def glob_files(
     elif not os.path.isfile(path):
         raise FileNotFoundError(f"Couldn't find image/folder at {path}")
 
-    output = []
+    files = []
     if has_multiple:
         for ext in valid_formats:
-            output.extend(glob(os.path.join(path, "*" + ext), recursive=recursive))
+            path_to_glob = os.path.join(path, "*" + ext)
+            if recursive:
+                path_to_glob = os.path.join(path, "**", "*" + ext)
 
-        if len(output) < 1:
+            files.extend(glob(path_to_glob, recursive=recursive))
+
+        if len(files) < 1:
             raise FileNotFoundError(
                 "Couldn't find files of supported type in the ",
                 f"given folder. Supported types: {valid_formats}",
             )
-        output = sorted(output)
+        files = sorted(files)
     else:
-        output.append(path)
+        files.append(path)
 
-    return output
+    return files
 
 
 # ! INSTALLER FUNCTIONS ---------------------------------------------------------------
 def install_scoop(*, as_admin: bool):
-    """Installs the Scoop command-line installer on the local system.
+    """Installs the Scoop command-line installer on the local system using Powershell.
 
     :param as_admin: True if we want to install it for the admin, and False otherwise.
 
@@ -205,6 +218,22 @@ def install_scoop(*, as_admin: bool):
         cmd = ["pwsh", "-c", "iex", '"&', "{$(irm get.scoop.sh)}", '-RunAsAdmin"']
 
     subprocess.run(cmd, check=True, shell=True)
+
+
+def download_ffmpeg_git_build(ffmpeg_path: Path | str):
+    """Downloads and extracts the latest FFMPEG build to the the given path.
+
+    :param ffmpeg_path: The path to extract FFMPEG to.
+    """
+    print(f"Downloading latest FFMPEG win64 build from {FFMPEG_URL}...")
+    urllib.request.urlretrieve(FFMPEG_URL, "ffmpeg.zip")
+
+    print(f"Download done. Unzipping at {ffmpeg_path}...")
+    with zipfile.ZipFile("./ffmpeg.zip", "r") as zip_ref:
+        zip_ref.extractall(ffmpeg_path)
+
+    print("Unzipped FFMPEG archive. Removing archive file...")
+    os.remove("./ffmpeg.zip")
 
 
 def install_ffmpeg_windows():
@@ -245,15 +274,7 @@ def install_ffmpeg_windows():
     # This block is run when the system has no Powershell support, or when the user
     # opts for a Github release installation in the prompt above
     if not ffmpeg_exists:
-        print(f"Downloading latest FFMPEG win64 build from {FFMPEG_URL}...")
-        urllib.request.urlretrieve(FFMPEG_URL, "ffmpeg.zip")
-
-        print(f"Download done. Unzipping at {ffmpeg_path}...")
-        with zipfile.ZipFile("./ffmpeg.zip", "r") as zip_ref:
-            zip_ref.extractall(ffmpeg_path)
-
-        print("Unzipped FFMPEG archive. Removing archive file...")
-        os.remove("./ffmpeg.zip")
+        download_ffmpeg_git_build(ffmpeg_path)
 
     print(
         "Adding FFMPEG to PATH for this session...\n"
@@ -267,7 +288,7 @@ def install_ffmpeg_windows():
 
 # ! MAIN FUNCTIONS --------------------------------------------------------------------
 def parse_args(
-    args: Optional[list[str]] = None,
+    args: Optional[Sequence[str]] = None,
 ) -> argparse.Namespace:
     """Parses CLI arguments into a Namespace object. Defaults to sys.argv[1:], but
     allows a list of strings to be manually passed, mainly for unit testing.
@@ -279,7 +300,7 @@ def parse_args(
 
     def convert_relative_path_to_absolute(path: str):
         """Convert relative paths to absolute for better console log clarity"""
-        if not os.path.abspath(path):
+        if not os.path.abspath(path) or path == '':
             return os.path.join(os.getcwd(), path)
         return path
 
@@ -393,8 +414,8 @@ def run_ffmpeg_command(cmd: list[str]):
 
 def create_videos(
     *,
-    audio_paths: list[str],
-    img_paths: list[str],
+    audio_paths: Sequence[str],
+    img_paths: Sequence[str],
     vid_format="webm",
     resolution: Optional[tuple[str, str]] = None,
     out_path="",
@@ -443,11 +464,11 @@ def create_videos(
     aud_codec = "copy"  # Use the same audio codec as the source audio
     vid_codec = "libx264"
 
-    if use_x265:
-        vid_codec = "libx265"
-    elif vid_format == "webm":
+    if vid_format == "webm":
         vid_codec = "libvpx-vp9"
         aud_codec = "libvorbis"
+    elif use_x265:
+        vid_codec = "libx265"
 
     # The PyCLI library would be a great fit for building more complicated commands
     # like these below without the code looking like spaghetti, though we're trying to
@@ -519,7 +540,7 @@ def create_videos(
     print(f"Finished operation in {round((end_time - start_time), 4)}s!")
 
 
-def main(*, cli_args: Optional[list[str]] = None) -> int:
+def main(*, cli_args: Optional[Sequence[str]] = None) -> int:
     """The main entrypoint of this script.
 
     :param cli_args: The CLI args to pass to parse_args(), defaults to None
@@ -574,19 +595,18 @@ def main(*, cli_args: Optional[list[str]] = None) -> int:
             use_x265=args.use_x265,
             random_image_order=args.random_image_order,
         )
-    except (KeyboardInterrupt, SystemExit) as err:
-        print(err)
-        return 1
+    except (KeyboardInterrupt, SystemExit) as msg:
+        print(msg)
+        raise msg
     except subprocess.CalledProcessError as err:
-        print(f"Caught subprocess error:\n{err.stderr}")
-        return 2
+        print(f"Caught subprocess error:\n")
+        raise err
     except (FileNotFoundError, RuntimeError, TimeoutError, OSError) as err:
-        print(f"Caught {type(err).__name__}:\n{err}")
-        return 2
+        print(f"Caught {type(err).__name__}:\n")
+        raise err
     except BaseException as err:  # pylint:disable=broad-except
         print(f"Unhandled exception occurred of type {type(err).__name__}: \n")
-        traceback.print_exception(err)
-        return 2
+        raise err
     else:
         return 0  # Success!
     finally:
