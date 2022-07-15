@@ -1,3 +1,6 @@
+"""
+A module of general utility functions that can be reused in other scripts.
+"""
 from glob import glob
 import multiprocessing
 import os

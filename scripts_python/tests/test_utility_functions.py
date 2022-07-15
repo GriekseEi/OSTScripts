@@ -1,12 +1,15 @@
-# pylint:disable=missing-function-docstring,unused-argument
+# pylint:disable=missing-function-docstring
+"""
+Unit test suite for the utility_functions module.
+"""
 import os
 import re
 from unittest.mock import MagicMock
+
 import pytest
+import utility_functions as util
 from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest_mock.plugin import MockerFixture
-import utility_functions as util
-
 
 UTIL_PATH = "utility_functions"
 
@@ -26,7 +29,6 @@ def fixture_fake_filesystem(fs: FakeFilesystem):  # pylint:disable=invalid-name
     fs.create_file("./test/sub/song8.mp3")
     fs.create_file("./test/sub/song9.mp3")
     fs.create_file("./test/sub/song0.mp2")
-    fs.create_dir("./output")
     yield fs
 
 

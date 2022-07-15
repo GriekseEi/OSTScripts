@@ -1,4 +1,7 @@
-# pylint:disable=missing-function-docstring,unused-argument
+# pylint:disable=missing-function-docstring
+"""
+Unit test suite for create_music_video.py
+"""
 import os
 import random
 from unittest.mock import MagicMock

@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+"""
+A script for creating music videos for use in YouTube. It takes in one or more songs/
+images and uses FFMPEG to encode videos out of them. It also contains installer
+functions for FFMPEG (for Windows) to install it if need be.
+"""
 import argparse
 import multiprocessing
 import os
