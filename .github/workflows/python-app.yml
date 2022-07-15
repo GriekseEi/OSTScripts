@@ -1,0 +1,43 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Python application
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install pipenv dependencies
+      uses: VaultVulp/action-pipenv@0e0abc7839b234802947bb8aa1a7c7b8b00a2ff4
+      with:
+        # pipenv command and its argument to be executed
+        command: install --dev
+    - name: Apply pylint
+      # You may pin to the exact commit or the version.
+      uses: cclauss/GitHub-Action-for-pylint@8ef4d22e119fb1cdc0f58f2e95cb1f8d8b0d55e6
+    - name: Test with pytest
+      run: |
+        pytest --cov
+    - name: Pytest Coverage Commentator
+      uses: coroo/pytest-coverage-commentator@bf2d76a0d38a8bbf7292aba469ae5285c5ea9660
+      with:
+        # Where to find the txt output of pytest-coverage
+        pytest-coverage: .coverage
+        # GITHUB_TOKEN
+        token: ${{ github.token }}
