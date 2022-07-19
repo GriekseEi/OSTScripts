@@ -118,6 +118,7 @@ def run_multiprocessed(func, commands: Iterable) -> list:
     with multiprocessing.Pool(pool_size) as pool:
         # Restore the original SIGINT handler in the main process so that we can
         # actually catch KeyboardInterrupts from here
+        # TODO: Have KeyboardInterrupts work on Windows as well
         signal.signal(signal.SIGINT, original_sigint_handler)
 
         try:
