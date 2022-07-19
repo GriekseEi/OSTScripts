@@ -24,8 +24,6 @@ jobs:
       uses: palewire/install-python-pipenv-pipfile@v2
       with:
         python-version: 3.10.5
-    - name: Install dependencies
-      run: pipenv install --dev
     - name: Run pylint
       run: pipenv run pylint scripts_python
     - name: Run unit tests
