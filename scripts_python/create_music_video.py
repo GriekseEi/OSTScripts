@@ -5,6 +5,7 @@ images and uses FFMPEG to encode videos out of them. It also contains installer
 functions for FFMPEG (for Windows) to install it if need be.
 """
 import argparse
+import logging
 import multiprocessing
 import os
 import platform
@@ -66,21 +67,21 @@ def download_ffmpeg_git_build(ffmpeg_path: Path | str):
 
     :param ffmpeg_path: The path to extract FFMPEG to.
     """
-    print(f"Downloading latest FFMPEG win64 build from {FFMPEG_URL}...")
+    logging.info(f"Downloading latest FFMPEG win64 build from {FFMPEG_URL}...")
     urllib.request.urlretrieve(FFMPEG_URL, "ffmpeg.zip")
 
-    print(f"Download done. Unzipping at {ffmpeg_path}...")
+    logging.info(f"Download done. Unzipping at {ffmpeg_path}...")
     with zipfile.ZipFile("./ffmpeg.zip", "r") as zip_ref:
         zip_ref.extractall(ffmpeg_path)
 
-    print("Unzipped FFMPEG archive. Removing archive file...")
+    logging.info("Unzipped FFMPEG archive. Removing archive file...")
     os.remove("./ffmpeg.zip")
 
 
 def install_ffmpeg_windows():
     """Installs FFMPEG on the local Windows system if it is not present"""
     if util.is_app_installed(["scoop"]):
-        print("FFMPEG dependency missing. Using Scoop to install FFMPEG...")
+        logging.warning("FFMPEG dependency missing. Using Scoop to install FFMPEG...")
         subprocess.run(["scoop", "install", "ffmpeg"], check=True, shell=True)
         return
 
@@ -94,7 +95,7 @@ def install_ffmpeg_windows():
 
     if util.is_app_installed(["pwsh", "-c", "$PSVersionTable"]) and not ffmpeg_exists:
         while True:
-            print(
+            logging.warning(
                 "FFMPEG dependency is missing. Do you wish to install it via: \n"
                 "[1] (Recommended) The Scoop command-line installer. This will "
                 "install Scoop for the current non-admin user and subsequently "
@@ -117,7 +118,7 @@ def install_ffmpeg_windows():
     if not ffmpeg_exists:
         download_ffmpeg_git_build(ffmpeg_path)
 
-    print(
+    logging.warning(
         "Adding FFMPEG to PATH for this session...\n"
         "WARNING: FFMPEG is only present in PATH for the current session.\n"
         "It is recommended that you manually add the directory containing the "
@@ -250,7 +251,7 @@ def parse_args(
 def run_ffmpeg_command(cmd: list[str]):
     """Runs FFMPEG using the given command"""
     subprocess.run(cmd, check=True, capture_output=True)
-    print(f"Created video at {cmd[-1]}")
+    logging.info(f"Created video at {cmd[-1]}")
 
 
 @util.track_elapsed_time(ndigits=4)
@@ -370,7 +371,7 @@ def create_videos(
         new_command[-1] = os.path.join(out_path, Path(audio).stem + "." + vid_format)
         commands.append(new_command.copy())
 
-    print(f"Processing {len(audio_paths)} song(s)... (Press CTRL+C to abort)")
+    logging.info(f"Processing {len(audio_paths)} song(s)... (Press CTRL+C to abort)")
     if multiprocessing.cpu_count() > 2 and len(audio_paths) > 1:
         util.run_multiprocessed(run_ffmpeg_command, list(zip(commands)))
     else:
@@ -457,4 +458,10 @@ def main(*, cli_args: Optional[Sequence[str]] = None) -> int:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        stream=sys.stdout
+    )
+
     sys.exit(main())

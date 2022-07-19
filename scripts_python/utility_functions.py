@@ -2,6 +2,7 @@
 A module of general utility functions that can be reused in other scripts.
 """
 from glob import glob
+import logging
 import multiprocessing
 import os
 import signal
@@ -24,7 +25,9 @@ def track_elapsed_time(ndigits: Optional[int] = 4):
             res = func(*args, **kwargs)
             end_time = time.perf_counter()
 
-            print(f"Finished operation in {round((end_time - start_time), ndigits)}s!")
+            logging.info(
+                f"Finished operation in {round((end_time - start_time), ndigits)}s!"
+            )
             return res
 
         return wrapper
@@ -62,7 +65,7 @@ def prompt_yes_no(message: str, yes_default: bool, *, max_iterations: int = 5) -
     """
     while max_iterations > 0:
         max_iterations -= 1
-        print(message)
+        logging.warning(message)
         valid = {
             "yes": True,
             "y": True,
@@ -77,7 +80,7 @@ def prompt_yes_no(message: str, yes_default: bool, *, max_iterations: int = 5) -
             return True
         if choice in valid and not valid[choice]:
             return False
-    print("Too many invalid responses were given, shutting down program...")
+    logging.error("Too many invalid responses were given, shutting down program...")
     return False
 
 
@@ -145,7 +148,7 @@ def create_missing_folder(path: str):
 
     if prompt_yes_no(msg, True):
         os.makedirs(path)
-        print("Created new folder at given path.")
+        logging.info("Created new folder at given path.")
     else:
         raise SystemExit("User refused to create output directory. Aborting...")
 

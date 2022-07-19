@@ -2,6 +2,7 @@
 """
 Unit test suite for the utility_functions module.
 """
+import logging
 import os
 import re
 from unittest.mock import MagicMock
@@ -117,8 +118,14 @@ def test_prompt_yes_no_handles_inputs_correctly(
     ],
 )
 def test_track_elapsed_time(
-    start_time, end_time, ndigits, mocker: MockerFixture, capfd
+    start_time,
+    end_time,
+    ndigits,
+    mocker: MockerFixture,
+    caplog: pytest.LogCaptureFixture,
 ):
+    caplog.set_level(logging.INFO)
+    caplog.handler.setFormatter(logging.Formatter("%(message)s"))
     mock_time = mocker.patch("time.perf_counter")
 
     # Return the start_time the first time that time.perf_counter is called,
@@ -132,10 +139,9 @@ def test_track_elapsed_time(
 
     @util.track_elapsed_time(ndigits=ndigits)
     def test_function():
-        print("Hello, World!")
+        logging.info("Hello, World!")
 
     test_function()
-    output = capfd.readouterr().out
-    elapsed_time = re.findall(r"[-+]?(?:\d*\.\d+|\d+)", output)
+    elapsed_time = re.findall(r"[-+]?(?:\d*\.\d+|\d+)", caplog.text)
 
     assert elapsed_time[0] == str(round(end_time - start_time, ndigits=ndigits))
