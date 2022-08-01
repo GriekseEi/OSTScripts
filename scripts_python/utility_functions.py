@@ -1,13 +1,13 @@
 """
 A module of general utility functions that can be reused in other scripts.
 """
-from glob import glob
 import logging
 import multiprocessing
 import os
 import signal
 import subprocess
 import time
+from glob import glob
 from typing import Iterable, Optional, Sequence
 
 
@@ -44,7 +44,7 @@ def is_app_installed(cmd: Sequence[str]) -> bool:
     :return: True if the app is executable from shell, False otherwise.
     """
     try:
-        subprocess.run(cmd, check=True, capture_output=True)
+        subprocess.run(cmd, check=True, shell=True, capture_output=True)
         return True
     except subprocess.CalledProcessError:
         return False
