@@ -158,7 +158,7 @@ def glob_files(
     path: str,
     valid_formats: tuple[str, ...],
     recursive: bool = False,
-) -> Sequence[str]:
+) -> list[str]:
     """Returns a list of all filenames in the given directory that support the given
     formats if the given path is a directory, or returns a list of only one path if
     the given path points to a single file. The paths in the list are sorted

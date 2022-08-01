@@ -19,20 +19,20 @@ CMV_PATH = "create_music_video"
 
 @pytest.fixture(name="fake_fs", scope="function")
 def fixture_fake_filesystem(fs: FakeFilesystem):  # pylint:disable=invalid-name
-    fs.create_file("./test/img1.jpg")
-    fs.create_file("./test/img2.png")
-    fs.create_file("./test/img3.jpg")
-    fs.create_file("./test/song1.mp3")
-    fs.create_file("./test/song2.wav")
-    fs.create_file("./test/song3.mp3")
-    fs.create_file("./test/song4.wav")
-    fs.create_file("./test/song5.mp3")
-    fs.create_file("./test/song6.mp3")
-    fs.create_file("./test/song7.mp3")
-    fs.create_file("./test/sub/song8.mp3")
-    fs.create_file("./test/sub/song9.mp3")
-    fs.create_file("./test/sub/song0.mp2")
-    fs.create_dir("./output")
+    fs.create_file(os.path.join(".", "test", "img1.jpg"))
+    fs.create_file(os.path.join(".", "test", "img2.png"))
+    fs.create_file(os.path.join(".", "test", "img3.jpg"))
+    fs.create_file(os.path.join(".", "test", "song1.mp3"))
+    fs.create_file(os.path.join(".", "test", "song2.wav"))
+    fs.create_file(os.path.join(".", "test", "song3.mp3"))
+    fs.create_file(os.path.join(".", "test", "song4.wav"))
+    fs.create_file(os.path.join(".", "test", "song5.mp3"))
+    fs.create_file(os.path.join(".", "test", "song6.mp3"))
+    fs.create_file(os.path.join(".", "test", "song7.mp3"))
+    fs.create_file(os.path.join(".", "test", "sub", "song8.mp3"))
+    fs.create_file(os.path.join(".", "test", "sub", "song9.mp3"))
+    fs.create_file(os.path.join(".", "test", "sub", "song0.mp2"))
+    fs.create_dir("output")
     yield fs
 
 
@@ -150,7 +150,7 @@ scale_string = (
 def test_create_videos_builds_correct_commands_with_different_encoders_and_resolutions(
     extra_args, args_to_check, out_format, fake_fs: FakeFilesystem, fixture_cv
 ):
-    args = ["-a", "./test", "-i", "./test"]
+    args = ["-a", "test", "-i", "test"]
     args.extend(extra_args)
     res = cmv.main(cli_args=args)
 
@@ -164,12 +164,15 @@ def test_create_videos_builds_correct_commands_with_different_encoders_and_resol
 def test_create_videos_iterates_through_multiple_images_if_provided(
     fake_fs: FakeFilesystem, fixture_cv: MagicMock
 ):
-    images = ("./test/img1.jpg", "./test/img2.png", "./test/img3.jpg")
+    images = (
+        os.path.join("test", "img1.jpg"),
+        os.path.join("test", "img2.png"),
+        os.path.join("test", "img3.jpg"),
+    )
 
-    res = cmv.main(cli_args=["-a", "./test", "-i", "./test"])
+    res = cmv.main(cli_args=["-a", "test", "-i", "test"])
 
     assert res == 0
-    assert len(fixture_cv.mock_calls) == 7
     # Assert that the image paths are looped over sequentially in the FFMPEG commands
     counter = 0
     for call in fixture_cv.mock_calls:
@@ -185,19 +188,18 @@ def test_create_videos_iterates_through_images_randomly_if_opted_for(
     # Set RNG to a fixed seed for consistent testing outcomes
     random.seed("test_create_videos")
     expected_choices = (
-        "./test/img3.jpg",
-        "./test/img1.jpg",
-        "./test/img2.png",
-        "./test/img2.png",
-        "./test/img2.png",
-        "./test/img3.jpg",
-        "./test/img3.jpg",
+        os.path.join("test", "img3.jpg"),
+        os.path.join("test", "img1.jpg"),
+        os.path.join("test", "img2.png"),
+        os.path.join("test", "img2.png"),
+        os.path.join("test", "img2.png"),
+        os.path.join("test", "img3.jpg"),
+        os.path.join("test", "img3.jpg"),
     )
 
-    res = cmv.main(cli_args=["-a", "./test", "-i", "./test", "-rng"])
+    res = cmv.main(cli_args=["-a", "test", "-i", "test", "-rng"])
 
     assert res == 0
-    assert len(fixture_cv.mock_calls) == 7
     for index, call in enumerate(fixture_cv.mock_calls):
         assert expected_choices[index] in call.args[0]
 
@@ -205,24 +207,21 @@ def test_create_videos_iterates_through_images_randomly_if_opted_for(
 @pytest.mark.parametrize(
     "out_folder, out_format",
     [
-        ("./", "webm"),
-        ("./output", "wmv"),
-        ("./output", "mp4"),
+        (".", "webm"),
+        ("output", "wmv"),
+        ("output", "mp4"),
         (".", "mov"),
-        ("", "webm"),
+        (".", "webm"),
     ],
 )
 def test_create_videos_builds_correct_output_filenames(
     out_folder, out_format, fake_fs: FakeFilesystem, fixture_cv: MagicMock
 ):
     res = cmv.main(
-        cli_args=["-a", "./test", "-i", "./test", "-o", out_folder, "-vf", out_format]
+        cli_args=["-a", "test", "-i", "test", "-o", out_folder, "-vf", out_format]
     )
 
     assert res == 0
-    assert len(fixture_cv.mock_calls) == 7
-    if out_folder == "":
-        out_folder = "/"
     for index, call in enumerate(fixture_cv.mock_calls):
         expected_filename = os.path.join(out_folder, f"song{index + 1}.{out_format}")
         assert expected_filename in call.args[0]

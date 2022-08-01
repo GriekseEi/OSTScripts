@@ -257,11 +257,11 @@ def run_ffmpeg_command(cmd: list[str]):
 @util.track_elapsed_time(ndigits=4)
 def create_videos(
     *,
-    audio_paths: Sequence[str],
-    img_paths: Sequence[str],
+    audio_paths: list[str],
+    img_paths: list[str],
     vid_format="webm",
     resolution: Optional[tuple[str, str]] = None,
-    out_path="",
+    out_path=".",
     use_x265=False,
     random_image_order=False,
 ):
