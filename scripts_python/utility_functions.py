@@ -44,9 +44,10 @@ def is_app_installed(cmd: Sequence[str]) -> bool:
     :return: True if the app is executable from shell, False otherwise.
     """
     try:
-        subprocess.run(cmd, check=True, shell=True, capture_output=True)
+        subprocess.run(cmd, check=True, capture_output=True)
         return True
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as ex:
+        logging.error(ex)
         return False
 
 
