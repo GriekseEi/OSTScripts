@@ -109,6 +109,5 @@ For the Python scripts, [pipenv](https://pipenv.pypa.io/en/latest/) is used for 
 
 ```bash
 git clone https://github.com/GriekseEi/OSTScripts.git
-pip install --user pipenv
-python -m pipenv install --dev
+pipenv install --dev
 ```
