@@ -1,6 +1,6 @@
 # OSTScripts <!-- omit in toc -->
 
-![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg) ![Linter: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen) ![Python version](https://img.shields.io/github/pipenv/locked/python-version/GriekseEi/OSTScripts?style=plastic) ![License: MIT](https://img.shields.io/github/license/GriekseEi/OSTScripts?style=plastic)
+![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg) ![Linter: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen) ![Python version](https://img.shields.io/github/pipenv/locked/python-version/GriekseEi/OSTScripts?style=plastic) ![License: MIT](https://img.shields.io/github/license/GriekseEi/OSTScripts?style=plastic) [![Build](https://github.com/GriekseEi/OSTScripts/actions/workflows/python-app.yml/badge.svg)](https://github.com/GriekseEi/OSTScripts/actions/workflows/python-app.yml)
 
 A repository of assorted scripts to automate the creation and uploading of music videos on YouTube.
 
