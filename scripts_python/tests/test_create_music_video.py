@@ -165,9 +165,9 @@ def test_create_videos_iterates_through_multiple_images_if_provided(
     fake_fs: FakeFilesystem, fixture_cv: MagicMock
 ):
     images = (
-        os.path.join("test", "img1.jpg"),
-        os.path.join("test", "img2.png"),
-        os.path.join("test", "img3.jpg"),
+        os.path.join("./test", "img1.jpg"),
+        os.path.join("./test", "img2.png"),
+        os.path.join("./test", "img3.jpg"),
     )
 
     res = cmv.main(cli_args=["-a", "test", "-i", "test"])
@@ -188,13 +188,13 @@ def test_create_videos_iterates_through_images_randomly_if_opted_for(
     # Set RNG to a fixed seed for consistent testing outcomes
     random.seed("test_create_videos")
     expected_choices = (
-        os.path.join("test", "img3.jpg"),
-        os.path.join("test", "img1.jpg"),
-        os.path.join("test", "img2.png"),
-        os.path.join("test", "img2.png"),
-        os.path.join("test", "img2.png"),
-        os.path.join("test", "img3.jpg"),
-        os.path.join("test", "img3.jpg"),
+        os.path.join("./test", "img3.jpg"),
+        os.path.join("./test", "img1.jpg"),
+        os.path.join("./test", "img2.png"),
+        os.path.join("./test", "img2.png"),
+        os.path.join("./test", "img2.png"),
+        os.path.join("./test", "img3.jpg"),
+        os.path.join("./test", "img3.jpg"),
     )
 
     res = cmv.main(cli_args=["-a", "test", "-i", "test", "-rng"])
