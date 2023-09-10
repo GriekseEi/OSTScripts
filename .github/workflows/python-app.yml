@@ -33,11 +33,11 @@ jobs:
     - name: Run pylint
       run: pipenv run pylint scripts_python
     - name: Run unit tests
-      run: pipenv run pytest --cov
+      run: pipenv run pytest --cov --cov-branch --cov-report xml:cov.xml --cov-report term-missing
     - name: Pytest Coverage Commentator
       uses: coroo/pytest-coverage-commentator@bf2d76a0d38a8bbf7292aba469ae5285c5ea9660
       with:
         # Where to find the txt output of pytest-coverage
-        pytest-coverage: .coverage
+        pytest-coverage: cov.xml
         # GITHUB_TOKEN
         token: ${{ github.token }}
