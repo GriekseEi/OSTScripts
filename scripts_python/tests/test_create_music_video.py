@@ -170,7 +170,7 @@ def test_create_videos_iterates_through_multiple_images_if_provided(
         os.path.join(".", "test", "img3.jpg"),
     )
 
-    res = cmv.main(cli_args=["-a", "test", "-i", "test"])
+    res = cmv.main(cli_args=["-a", os.path.join(".", "test"), "-i", os.path.join(".", "test")])
 
     assert res == 0
     # Assert that the image paths are looped over sequentially in the FFMPEG commands
@@ -197,7 +197,7 @@ def test_create_videos_iterates_through_images_randomly_if_opted_for(
         os.path.join(".", "test", "img3.jpg"),
     )
 
-    res = cmv.main(cli_args=["-a", "test", "-i", "test", "-rng"])
+    res = cmv.main(cli_args=["-a", os.path.join(".", "test"), "-i", os.path.join(".", "test"), "-rng"])
 
     assert res == 0
     for index, call in enumerate(fixture_cv.mock_calls):
