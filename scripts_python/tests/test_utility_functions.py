@@ -40,7 +40,7 @@ def fixture_fake_filesystem(fs: FakeFilesystem):  # pylint:disable=invalid-name
         ("./test", (".mp3",), False, 5),
         ("./test", (".mp3",), True, 7),
         ("./test", (".mp3", ".mp2"), True, 8),
-    ],
+    ]
 )
 def test_glob_files(
     path, file_format, recursive, expected_count, fake_fs: FakeFilesystem
@@ -53,6 +53,15 @@ def test_glob_files(
 def test_glob_files_returns_error_if_no_files_found(fake_fs: FakeFilesystem):
     with pytest.raises(FileNotFoundError):
         util.glob_files("./test", (".mpx",), False)
+        
+
+def test_glob_files_ignores_capitalization_in_paths(fake_fs: FakeFilesystem):
+    fake_fs.create_dir("CAPS")
+    fake_fs.create_file("./CAPS/TEST.mp3")
+    
+    res = util.glob_files("./caps", (".mp3",), True)
+    
+    assert len(res) == 1
 
 
 def test_creates_missing_output_folder(mocker: MockerFixture, fake_fs: FakeFilesystem):

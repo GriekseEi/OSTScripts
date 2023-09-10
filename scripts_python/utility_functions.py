@@ -4,6 +4,7 @@ A module of general utility functions that can be reused in other scripts.
 import logging
 import multiprocessing
 import os
+import platform
 import signal
 import subprocess
 import time
@@ -173,6 +174,11 @@ def glob_files(
     given extensions.
     """
     has_multiple = False
+    
+    if platform.system() == "Linux":
+        # Filenames in Linux are case-sensitive, but not on Windows
+        path = get_casecorrect_path(path)
+    
     if os.path.isdir(path):
         has_multiple = True
     elif not os.path.isfile(path):
@@ -197,3 +203,18 @@ def glob_files(
         files.append(path)
 
     return files
+
+def get_casecorrect_path(path: str) -> str:
+    """Takes a path, checks with the filesystem if it has the correct
+    capitalization, then returns the corrected path
+    
+    :param path: The path to verify the capitalization of
+    """
+    directory, filename = os.path.split(path)
+    directory, filename = (directory or '.'), filename.lower()
+    for f in os.listdir(directory):
+        newpath = os.path.join(directory, f)
+        if os.path.isfile(newpath) and f.lower() == filename:
+            return newpath
+        elif os.path.isdir(newpath) and f.lower() == filename:
+            return newpath
