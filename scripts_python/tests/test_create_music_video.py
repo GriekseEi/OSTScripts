@@ -19,19 +19,19 @@ CMV_PATH = "create_music_video"
 
 @pytest.fixture(name="fake_fs", scope="function")
 def fixture_fake_filesystem(fs: FakeFilesystem):  # pylint:disable=invalid-name
-    fs.create_file(os.path.join(".", "test", "img1.jpg"))
-    fs.create_file(os.path.join(".", "test", "img2.png"))
-    fs.create_file(os.path.join(".", "test", "img3.jpg"))
-    fs.create_file(os.path.join(".", "test", "song1.mp3"))
-    fs.create_file(os.path.join(".", "test", "song2.wav"))
-    fs.create_file(os.path.join(".", "test", "song3.mp3"))
-    fs.create_file(os.path.join(".", "test", "song4.wav"))
-    fs.create_file(os.path.join(".", "test", "song5.mp3"))
-    fs.create_file(os.path.join(".", "test", "song6.mp3"))
-    fs.create_file(os.path.join(".", "test", "song7.mp3"))
-    fs.create_file(os.path.join(".", "test", "sub", "song8.mp3"))
-    fs.create_file(os.path.join(".", "test", "sub", "song9.mp3"))
-    fs.create_file(os.path.join(".", "test", "sub", "song0.mp2"))
+    fs.create_file(os.path.join("test", "img1.jpg"))
+    fs.create_file(os.path.join("test", "img2.png"))
+    fs.create_file(os.path.join("test", "img3.jpg"))
+    fs.create_file(os.path.join("test", "song1.mp3"))
+    fs.create_file(os.path.join("test", "song2.wav"))
+    fs.create_file(os.path.join("test", "song3.mp3"))
+    fs.create_file(os.path.join("test", "song4.wav"))
+    fs.create_file(os.path.join("test", "song5.mp3"))
+    fs.create_file(os.path.join("test", "song6.mp3"))
+    fs.create_file(os.path.join("test", "song7.mp3"))
+    fs.create_file(os.path.join("test", "sub", "song8.mp3"))
+    fs.create_file(os.path.join("test", "sub", "song9.mp3"))
+    fs.create_file(os.path.join("test", "sub", "song0.mp2"))
     fs.create_dir("output")
     yield fs
 
@@ -165,12 +165,12 @@ def test_create_videos_iterates_through_multiple_images_if_provided(
     fake_fs: FakeFilesystem, fixture_cv: MagicMock
 ):
     images = (
-        os.path.join("./test", "img1.jpg"),
-        os.path.join("./test", "img2.png"),
-        os.path.join("./test", "img3.jpg"),
+        os.path.join(".", "test", "img1.jpg"),
+        os.path.join(".", "test", "img2.png"),
+        os.path.join(".", "test", "img3.jpg"),
     )
 
-    res = cmv.main(cli_args=["-a", "test", "-i", "test"])
+    res = cmv.main(cli_args=["-a", os.path.join(".", "test"), "-i", os.path.join(".", "test")])
 
     assert res == 0
     # Assert that the image paths are looped over sequentially in the FFMPEG commands
@@ -188,16 +188,16 @@ def test_create_videos_iterates_through_images_randomly_if_opted_for(
     # Set RNG to a fixed seed for consistent testing outcomes
     random.seed("test_create_videos")
     expected_choices = (
-        os.path.join("./test", "img3.jpg"),
-        os.path.join("./test", "img1.jpg"),
-        os.path.join("./test", "img2.png"),
-        os.path.join("./test", "img2.png"),
-        os.path.join("./test", "img2.png"),
-        os.path.join("./test", "img3.jpg"),
-        os.path.join("./test", "img3.jpg"),
+        os.path.join(".", "test", "img3.jpg"),
+        os.path.join(".", "test", "img1.jpg"),
+        os.path.join(".", "test", "img2.png"),
+        os.path.join(".", "test", "img2.png"),
+        os.path.join(".", "test", "img2.png"),
+        os.path.join(".", "test", "img3.jpg"),
+        os.path.join(".", "test", "img3.jpg"),
     )
 
-    res = cmv.main(cli_args=["-a", "test", "-i", "test", "-rng"])
+    res = cmv.main(cli_args=["-a", os.path.join(".", "test"), "-i", os.path.join(".", "test"), "-rng"])
 
     assert res == 0
     for index, call in enumerate(fixture_cv.mock_calls):
