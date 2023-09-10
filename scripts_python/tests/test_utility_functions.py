@@ -17,29 +17,29 @@ UTIL_PATH = "utility_functions"
 
 @pytest.fixture(name="fake_fs", scope="function")
 def fixture_fake_filesystem(fs: FakeFilesystem):  # pylint:disable=invalid-name
-    fs.create_file("./test/img1.jpg")
-    fs.create_file("./test/img2.png")
-    fs.create_file("./test/img3.jpg")
-    fs.create_file("./test/song1.mp3")
-    fs.create_file("./test/song2.wav")
-    fs.create_file("./test/song3.mp3")
-    fs.create_file("./test/song4.wav")
-    fs.create_file("./test/song5.mp3")
-    fs.create_file("./test/song6.mp3")
-    fs.create_file("./test/song7.mp3")
-    fs.create_file("./test/sub/song8.mp3")
-    fs.create_file("./test/sub/song9.mp3")
-    fs.create_file("./test/sub/song0.mp2")
+    fs.create_file(os.path.join("test", "img1.jpg"))
+    fs.create_file(os.path.join("test", "img2.jpg"))
+    fs.create_file(os.path.join("test", "img3.jpg"))
+    fs.create_file(os.path.join("test", "song1.mp3"))
+    fs.create_file(os.path.join("test", "song2.wav"))
+    fs.create_file(os.path.join("test", "song3.mp3"))
+    fs.create_file(os.path.join("test", "song4.wav"))
+    fs.create_file(os.path.join("test", "song5.mp3"))
+    fs.create_file(os.path.join("test", "song6.mp3"))
+    fs.create_file(os.path.join("test", "song7.mp3"))
+    fs.create_file(os.path.join("test", "sub", "song8.mp3"))
+    fs.create_file(os.path.join("test", "sub", "song9.mp3"))
+    fs.create_file(os.path.join("test", "sub", "song0.mp2"))
     yield fs
 
 
 @pytest.mark.parametrize(
     "path, file_format, recursive, expected_count",
     [
-        ("./test/song1.mp3", (".mp3",), False, 1),
-        ("./test", (".mp3",), False, 5),
-        ("./test", (".mp3",), True, 7),
-        ("./test", (".mp3", ".mp2"), True, 8),
+        (os.path.join("test", "song1.mp3"), (".mp3",), False, 1),
+        ("test", (".mp3",), False, 5),
+        ("test", (".mp3",), True, 7),
+        ("test", (".mp3", ".mp2"), True, 8),
     ]
 )
 def test_glob_files(
@@ -52,14 +52,14 @@ def test_glob_files(
 
 def test_glob_files_returns_error_if_no_files_found(fake_fs: FakeFilesystem):
     with pytest.raises(FileNotFoundError):
-        util.glob_files("./test", (".mpx",), False)
+        util.glob_files("test", (".mpx",), False)
         
 
 def test_glob_files_ignores_capitalization_in_paths(fake_fs: FakeFilesystem):
     fake_fs.create_dir("CAPS")
-    fake_fs.create_file("./CAPS/TEST.mp3")
+    fake_fs.create_file(os.path.join("CAPS", "TEST.mp3"))
     
-    res = util.glob_files("./caps", (".mp3",), True)
+    res = util.glob_files("caps", (".mp3",), True)
     
     assert len(res) == 1
 
@@ -67,9 +67,9 @@ def test_glob_files_ignores_capitalization_in_paths(fake_fs: FakeFilesystem):
 def test_creates_missing_output_folder(mocker: MockerFixture, fake_fs: FakeFilesystem):
     mocker.patch(f"{UTIL_PATH}.prompt_yes_no", return_value=True)
 
-    util.create_missing_folder("./testpath")
+    util.create_missing_folder("testpath")
 
-    assert os.path.exists("./testpath")
+    assert os.path.exists("testpath")
 
 
 @pytest.mark.parametrize("cores", [1, 2])
